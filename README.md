@@ -1,17 +1,12 @@
 <div align="center">
 
-```
-   ____                 _           _   _      _
-  / ___| _ __  ___  ___| |_ _ __ __| \ | | ___| |_
-  \___ \| '_ \/ _ \/ __| __| '__/ _ \ \| |/ _ \ __|
-   ___) | |_) |  __/ (__| |_| | |  __/ |\  |  __/ |_
-  |____/| .__/ \___|\___|\__|_|  \___|_| \_|\___|\__|
-        |_|
-```
+# 👻 SPECTRENET
 
-### Always one step ahead.
+**Always one step ahead.**
 
-**AI-assisted offensive security framework for authorized penetration testing.**
+AI-assisted offensive security framework for authorized penetration testing.
+
+---
 
 ![Python](https://img.shields.io/badge/Python-3.11%2B-00c8ff?style=flat-square&logo=python&logoColor=white&labelColor=050d1a)
 ![Phase](https://img.shields.io/badge/Phase-1%20Foundation-00c8ff?style=flat-square&labelColor=050d1a)
