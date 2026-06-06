@@ -1,15 +1,41 @@
 <div align="center">
 
-# 👻 SPECTRENET
+```
+                          ░░░░░░░░░░░░░
+                        ░░             ░░
+             ┌──○──┐  ░░   ◈       ◈   ░░  ┌──○──┐
+    ─────────┤     ├─░░                 ░░─┤     ├─────────
+             └──○──┘  ░░       ∧       ░░  └──○──┘
+                        ░░   ╰───╯   ░░
+                          ░░░░░░░░░░░░░
+                          ░   ░   ░   ░
+                        ░░ ░░░ ░░░ ░░░ ░░
+             ┌──┐  ┌──┐  ┌──┐  ┌──┐  ┌──┐  ┌──┐
+    ─────────┘  └──┘  └──┘  └──┘  └──┘  └──┘  └─────────
+```
+
+```
+  ██████╗ ██████╗ ███████╗ ██████╗████████╗██████╗ ███████╗
+ ██╔════╝ ██╔══██╗██╔════╝██╔════╝╚══██╔══╝██╔══██╗██╔════╝
+ ╚██████╗ ██████╔╝█████╗  ██║        ██║   ██████╔╝█████╗  
+  ╚════██╗██╔═══╝ ██╔══╝  ██║        ██║   ██╔══██╗██╔══╝  
+  ██████╔╝██║     ███████╗╚██████╗   ██║   ██║  ██║███████╗
+  ╚═════╝ ╚═╝     ╚══════╝ ╚═════╝   ╚═╝   ╚═╝  ╚═╝╚══════╝
+  ███╗   ██╗███████╗████████╗
+  ████╗  ██║██╔════╝╚══██╔══╝
+  ██╔██╗ ██║█████╗     ██║   
+  ██║╚██╗██║██╔══╝     ██║   
+  ██║ ╚████║███████╗   ██║   
+  ╚═╝  ╚═══╝╚══════╝   ╚═╝   
+```
 
 **Always one step ahead.**
-
-AI-assisted offensive security framework for authorized penetration testing.
 
 ---
 
 ![Python](https://img.shields.io/badge/Python-3.11%2B-00c8ff?style=flat-square&logo=python&logoColor=white&labelColor=050d1a)
-![Phase](https://img.shields.io/badge/Phase-1%20Foundation-00c8ff?style=flat-square&labelColor=050d1a)
+![Phase](https://img.shields.io/badge/Phase-1%20Complete-00c8ff?style=flat-square&labelColor=050d1a)
+![Tests](https://img.shields.io/badge/Tests-20%20passed-4dffa3?style=flat-square&labelColor=050d1a)
 ![License](https://img.shields.io/badge/License-MIT-00c8ff?style=flat-square&labelColor=050d1a)
 ![Status](https://img.shields.io/badge/Status-In%20Development-ffb84d?style=flat-square&labelColor=050d1a)
 
@@ -19,7 +45,7 @@ AI-assisted offensive security framework for authorized penetration testing.
 
 ## Overview
 
-SpectreNet is a next-generation offensive security framework that extends the classic pentest workflow with an optional AI layer. It runs on a pentest machine, supports teams of 1–5 operators sharing sessions, and can operate fully offline.
+SpectreNet is a next-generation offensive security framework that extends the classic pentest workflow with an optional AI layer. It runs on a pentest machine, supports teams of 1–5 operators sharing sessions, and operates fully offline.
 
 Two modes. One engine.
 
@@ -35,28 +61,26 @@ The AI is a force-multiplier — not a hard dependency. Every engine, wrapper, a
 
 ## Architecture
 
-SpectreNet is organized into six vertical layers:
-
 ```
-┌─────────────────────────────────────────────────────┐
-│                  Interface Layer                     │
-│   TUI (Textual/Rich)  │  GUI (Tauri)  │  Web Dash   │
-├─────────────────────────────────────────────────────┤
-│                  Mode Selector                       │
-│          Classic  │  AI Autonomous  │  AI Gated      │
-├─────────────────────────────────────────────────────┤
-│              AI Core  (optional)                     │
-│  Mission Planner │ Step Reasoner │ Report Writer     │
-├─────────────────────────────────────────────────────┤
-│                  Engine Layer                        │
-│   Recon  │  Web Vulns  │  Exploit  │  Post-Ex        │
-├─────────────────────────────────────────────────────┤
-│              Tool Wrapper Layer                      │
-│  nmap │ sqlmap │ nuclei │ msfvenom │ Burp │ custom…  │
-├─────────────────────────────────────────────────────┤
-│           Knowledge Base  +  Storage                 │
-│    CVE DB  │  Exploit Map  │  Session History        │
-└─────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                      Interface Layer                         │
+│      TUI (Textual/Rich)  │  GUI (Tauri)  │  Web Dashboard   │
+├─────────────────────────────────────────────────────────────┤
+│                      Mode Selector                           │
+│           Classic  │  AI Autonomous  │  AI Approval-Gated   │
+├─────────────────────────────────────────────────────────────┤
+│                   AI Core  (optional)                        │
+│     Mission Planner  │  Step Reasoner  │  Report Writer      │
+├─────────────────────────────────────────────────────────────┤
+│                      Engine Layer                            │
+│      Recon  │  Web Vulns  │  Exploit  │  Post-Exploitation   │
+├─────────────────────────────────────────────────────────────┤
+│                   Tool Wrapper Layer                         │
+│    nmap │ masscan │ sqlmap │ nuclei │ msfvenom │ custom...   │
+├─────────────────────────────────────────────────────────────┤
+│                Knowledge Base  +  Storage                    │
+│         CVE DB  │  Exploit Map  │  Session History           │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 Every tool wrapper normalizes output to a common JSON schema. Drop a file into `wrappers/custom/` — it's autodiscovered on startup with no config changes required.
@@ -86,22 +110,22 @@ Every tool wrapper normalizes output to a common JSON schema. Drop a file into `
 ## Build Roadmap
 
 ```
-Phase 1 — Foundation          ██████░░░░  IN PROGRESS
+Phase 1 — Foundation          ██████████  COMPLETE  ✓
 Phase 2 — Core Attack Loop    ░░░░░░░░░░  Planned
 Phase 3 — Full Intelligence   ░░░░░░░░░░  Planned
 Phase 4 — Custom Model        ░░░░░░░░░░  Planned
 ```
 
-### Phase 1 — Foundation *(current)*
-- [x] Project skeleton, config system, logging
-- [x] SpectreNet theme (dark navy + cyan)
-- [ ] Convention-based wrapper autodiscovery
-- [ ] nmap + masscan wrappers with normalized JSON output
-- [ ] Recon engine
-- [ ] Swappable model interface + Ollama backend
-- [ ] SQLite session storage + audit log
-- [ ] CVE knowledge base
-- [ ] TUI shell (Textual) + CLI entry point (`spectrenet` / `snet`)
+### Phase 1 — Foundation ✓
+- [x] Project skeleton, config system, structured logging
+- [x] SpectreNet theme (dark navy + cyan palette)
+- [x] Convention-based wrapper autodiscovery (`wrappers/custom/` drop-in)
+- [x] nmap + masscan wrappers with normalized JSON output
+- [x] Recon engine orchestrating wrappers via registry
+- [x] Swappable model interface + Ollama backend
+- [x] SQLite session storage + immutable audit log
+- [x] CVE knowledge base with service lookup
+- [x] TUI shell (Textual) + CLI entry point (`spectrenet` / `snet`)
 
 ### Phase 2 — Core Attack Loop
 - Metasploit RPC bridge (pymetasploit3)
@@ -136,7 +160,7 @@ Phase 4 — Custom Model        ░░░░░░░░░░  Planned
 git clone https://github.com/BroJustLeaveMeAlone/SpectreNet.git
 cd SpectreNet
 
-# Install (editable, with dev tools)
+# Install
 pip install -e ".[dev]"
 
 # Launch
@@ -152,13 +176,11 @@ snet
 ollama pull llama3.1:70b
 ```
 
-SpectreNet defaults to Ollama as its AI backend. To use a different backend, set `model_backend` in `config.yaml`.
-
 ---
 
 ## Configuration
 
-On first run, SpectreNet uses built-in defaults. To customize, create `config.yaml` in the working directory:
+Create `config.yaml` in the working directory to override defaults:
 
 ```yaml
 operator_name: alice           # shown in the audit log
@@ -194,13 +216,11 @@ class ZmapWrapper(ToolWrapper):
         ...
 ```
 
-SpectreNet autodiscovers it on the next startup. No config edits needed. If the binary isn't present on PATH, the wrapper registers as `unavailable` — shown as a warning at startup, not a crash.
+Autodiscovered on next startup. No config edits needed.
 
 ---
 
 ## Approval-Gated AI Mode
-
-When the AI plans an intrusive action, execution pauses and the operator is prompted:
 
 ```
 ┌─ APPROVAL REQUIRED ──────────────────────────────────┐
@@ -218,23 +238,7 @@ When the AI plans an intrusive action, execution pauses and the operator is prom
 - **N** — action denied, AI replans from current state
 - **S** — mission step skipped, AI advances to the next
 
-Recon and passive enumeration never require approval. Classic mode has no gate — you drive every step manually.
-
----
-
-## Team Usage
-
-*(Phase 3 — PostgreSQL + FastAPI server required)*
-
-```bash
-# Lead operator — starts the embedded server on port 7777
-spectrenet --mode team --session engagement-2025
-
-# Teammates connect via their own local TUI
-spectrenet --host 192.168.1.10 --session engagement-2025 --operator bob
-```
-
-Each operator is identified by their local `operator_name`. All actions are stamped with operator identity in the shared audit trail. If two operators work the same target simultaneously, a warning is shown — no hard lock, full audit.
+Recon and passive enumeration never require approval.
 
 ---
 
@@ -253,13 +257,11 @@ SpectreNet is designed for **authorized penetration testing, red team operations
 
 **You are responsible for ensuring you have explicit written authorization before targeting any system.**
 
-Using this tool against systems without authorization is illegal in most jurisdictions and is not supported by this project. The authors accept no liability for unauthorized or unlawful use.
+Using this tool against systems without authorization is illegal in most jurisdictions. The authors accept no liability for unauthorized or unlawful use.
 
 ---
 
 <div align="center">
-
-**SpectreNet** — Always one step ahead.
 
 *Built for operators.*
 
