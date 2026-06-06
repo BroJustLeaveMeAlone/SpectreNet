@@ -1,0 +1,4 @@
+[
+  {"ip": "192.168.1.45", "ports": [{"port": 445, "proto": "tcp", "status": "open"}]},
+  {"ip": "192.168.1.50", "ports": [{"port": 80, "proto": "tcp", "status": "open"}]}
+]
