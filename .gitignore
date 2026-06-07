@@ -7,3 +7,6 @@ __pycache__/
 *.sqlite
 .coverage
 spectrenet.log
+review_output.txt
+.spectrenet_workspace.json
+spectrenet_report.md
