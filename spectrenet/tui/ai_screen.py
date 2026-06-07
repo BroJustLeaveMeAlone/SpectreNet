@@ -3,7 +3,7 @@ import asyncio
 import logging
 from textual.app import ComposeResult
 from textual.screen import Screen
-from textual.widgets import Static, Input, RichLog
+from textual.widgets import Static, Input, RichLog, Button
 from textual.containers import Horizontal
 from spectrenet import __version__
 from spectrenet.theme import CYAN, CYAN_DIM, NAVY, NAVY_DEEP, NAVY_LIGHT, GREY, WHITE, SUCCESS, WARNING, ERROR, RISK_HIGH
@@ -66,6 +66,19 @@ class AIScreen(Screen):
     Input:focus {{
         border: none;
     }}
+    #clear-btn {{
+        width: 5;
+        min-width: 5;
+        height: 1;
+        background: {NAVY};
+        color: {GREY};
+        border: none;
+        margin-left: 1;
+    }}
+    #clear-btn:hover {{
+        background: {NAVY_LIGHT};
+        color: {CYAN};
+    }}
     """
 
     def __init__(self, model, registry, recon, msf_bridge=None, **kwargs) -> None:
@@ -97,6 +110,7 @@ class AIScreen(Screen):
                 placeholder="goal <objective>  |  explain  |  scan quick <ip>  |  !cmd  |  help",
                 id="ai-input",
             )
+            yield Button("CLR", id="clear-btn")
 
     def on_mount(self) -> None:
         self.feed.write(f"[bold {CYAN}]SpectreNet[/] v{__version__} — AI Mode")
@@ -543,6 +557,11 @@ class AIScreen(Screen):
     # ------------------------------------------------------------------
     # Actions
     # ------------------------------------------------------------------
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "clear-btn":
+            self.feed.clear()
+            self.query_one("#ai-input", Input).focus()
 
     def action_show_help(self) -> None:
         from spectrenet.tui.help_screen import HelpScreen
