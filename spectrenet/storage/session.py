@@ -4,6 +4,8 @@ import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 
+from spectrenet.tui.approval_gate import ApprovalResult
+
 SCHEMA = Path(__file__).parent / "schema.sql"
 
 def _now() -> str:
@@ -36,5 +38,22 @@ class SessionStore:
     def actions_for(self, session_id: int) -> list[dict]:
         rows = self.conn.execute(
             "SELECT * FROM actions WHERE session_id=? ORDER BY id", (session_id,)
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def log_approval(self, session_id: int, operator: str, action: str,
+                     target: str, risk: str, result: str | ApprovalResult) -> None:
+        if isinstance(result, ApprovalResult):
+            result = result.value
+        self.conn.execute(
+            "INSERT INTO approvals (session_id, ts, operator, action, target, risk, result) "
+            "VALUES (?,?,?,?,?,?,?)",
+            (session_id, _now(), operator, action, target, risk, result),
+        )
+        self.conn.commit()
+
+    def approvals_for(self, session_id: int) -> list[dict]:
+        rows = self.conn.execute(
+            "SELECT * FROM approvals WHERE session_id=? ORDER BY id", (session_id,)
         ).fetchall()
         return [dict(r) for r in rows]

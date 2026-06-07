@@ -16,3 +16,15 @@ CREATE TABLE IF NOT EXISTS actions (
     output_hash TEXT,
     FOREIGN KEY (session_id) REFERENCES sessions(id)
 );
+
+CREATE TABLE IF NOT EXISTS approvals (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id INTEGER NOT NULL,
+    ts TEXT NOT NULL,
+    operator TEXT NOT NULL,
+    action TEXT NOT NULL,
+    target TEXT NOT NULL,
+    risk TEXT NOT NULL,
+    result TEXT NOT NULL,
+    FOREIGN KEY (session_id) REFERENCES sessions(id)
+);
