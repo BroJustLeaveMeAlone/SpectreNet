@@ -1,4 +1,3 @@
-# spectrenet/tui/app.py
 import asyncio
 from textual.app import App, ComposeResult
 from textual.widgets import Header, Footer, Input, RichLog
@@ -6,41 +5,47 @@ from textual.containers import Vertical
 from spectrenet import APP_NAME, TAGLINE, __version__
 from spectrenet.theme import BANNER, CYAN, NAVY_DEEP
 from spectrenet.tui.command_parser import parse_command
-from spectrenet.tui.approval_gate import (
-    ActionCard, ApprovalResult, format_action_card
-)
+from spectrenet.tui.approval_gate import ActionCard, ApprovalResult, format_action_card
+from spectrenet.tui.goal_panel import GoalPanel
+
 
 class SpectreNetApp(App):
     CSS = f"""
     Screen {{ background: {NAVY_DEEP}; }}
+    GoalPanel {{ background: {NAVY_DEEP}; border-bottom: solid {CYAN}; padding: 0 1; height: 1; }}
     RichLog {{ border: round {CYAN}; height: 1fr; }}
     Input {{ border: round {CYAN}; }}
     """
     TITLE = APP_NAME
     SUB_TITLE = TAGLINE
 
-    def __init__(self, registry, recon, model=None, **kwargs):
+    def __init__(self, registry, recon, model=None, msf_bridge=None, **kwargs):
         super().__init__(**kwargs)
         self.registry = registry
         self.recon = recon
         self.model = model
+        self.msf_bridge = msf_bridge
+        self._goal_engine = None
         self._approval_event: asyncio.Event | None = None
         self._approval_result: ApprovalResult | None = None
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
+        self.goal_panel = GoalPanel()
+        yield self.goal_panel
         with Vertical():
-            self.log_view = RichLog(highlight=True, markup=True)
-            yield self.log_view
-            yield Input(placeholder="snet> scan | wrappers | mission <target> <desc> | help | quit")
+            self.feed = RichLog(highlight=True, markup=True, id="feed")
+            yield self.feed
+            yield Input(placeholder="ai> goal <objective> | scan <target> | stop | help | quit")
         yield Footer()
 
     def on_mount(self) -> None:
-        self.log_view.write(f"[bold {CYAN}]{BANNER}[/]")
-        self.log_view.write(f"[{CYAN}]{APP_NAME} v{__version__}[/] — {TAGLINE}")
-        self.log_view.write(f"Wrappers available: {', '.join(self.registry.available()) or 'none'}")
+        self.feed.write(f"[bold {CYAN}]{BANNER}[/]")
+        self.feed.write(f"[{CYAN}]{APP_NAME} v{__version__}[/] — {TAGLINE}")
+        self.feed.write(f"Wrappers: {', '.join(self.registry.available()) or 'none'}")
         ai_status = "active" if self.model else "inactive (classic mode)"
-        self.log_view.write(f"AI: {ai_status}")
+        self.feed.write(f"AI: {ai_status}")
+        self.feed.write(f"[dim]Set a goal: goal <objective>  |  scan <target>  |  help[/]")
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
         raw = event.value.strip()
@@ -48,16 +53,30 @@ class SpectreNetApp(App):
         if not raw:
             return
 
-        # Approval gate intercept — if a gate is pending, only accept Y/N/S
+        # Approval gate intercept — only Y/N/S accepted while a gate is pending
         if self._approval_event is not None:
             key = raw.upper()
             if key in ("Y", "N", "S"):
                 self._approval_result = ApprovalResult(key)
+                if self._goal_engine is not None:
+                    self._goal_engine.set_approval_result(key)
                 self._approval_event.set()
             else:
-                self.log_view.write(
-                    f"[yellow]Approval pending — enter Y (approve), N (deny), or S (skip)[/]"
-                )
+                self.feed.write("[yellow]Approval pending — enter Y (approve), N (deny), or S (skip)[/]")
+            return
+
+        # Route to GoalEngine while it is running
+        if self._goal_engine is not None and self._goal_engine._running:
+            self._goal_engine.handle_input(raw)
+            return
+
+        # Classic command parser
+        if raw.lower().startswith("goal "):
+            objective = raw[5:].strip()
+            if not objective:
+                self.feed.write("[red]usage: goal <objective>[/]")
+                return
+            self._start_goal(objective)
             return
 
         cmd = parse_command(raw)
@@ -65,102 +84,121 @@ class SpectreNetApp(App):
             return
         if cmd.verb in ("quit", "exit"):
             self.exit()
+        elif cmd.verb == "stop":
+            if self._goal_engine:
+                self._goal_engine.stop()
+                self.goal_panel.update_goal(self._goal_engine._goal, "STOPPED")
+                self.feed.write(f"[{CYAN}]AI stopped.[/]")
         elif cmd.verb == "help":
-            self.log_view.write(
-                "Commands: scan <target> [--tool nmap|masscan], "
-                "mission <target> <description>, wrappers, help, quit"
+            self.feed.write(
+                "Commands: goal <objective>, scan <target> [--tool nmap|masscan], "
+                "stop, wrappers, help, quit"
             )
         elif cmd.verb == "wrappers":
-            self.log_view.write("Registered: " + ", ".join(self.registry.names()))
+            self.feed.write("Registered: " + ", ".join(self.registry.names()))
         elif cmd.verb == "scan":
             self._do_scan(cmd)
-        elif cmd.verb == "mission":
-            self._do_mission(cmd)
         else:
-            self.log_view.write(f"[red]Unknown command:[/] {cmd.verb}")
+            self.feed.write(f"[red]Unknown command:[/] {cmd.verb}")
+
+    def _start_goal(self, objective: str) -> None:
+        if self.model is None:
+            self.feed.write("[red]AI mode not active.[/] Start with --model ollama to enable.")
+            return
+        from spectrenet.ai.goal_engine import GoalEngine
+        from spectrenet.engines.exploit import ExploitEngine
+        from spectrenet.engines.exploit_modules.registry import ExploitModuleRegistry
+
+        module_registry = ExploitModuleRegistry()
+        module_registry.discover()
+        exploit_engine = ExploitEngine(module_registry, self.msf_bridge)
+
+        self._goal_engine = GoalEngine(
+            model=self.model,
+            exploit_engine=exploit_engine,
+            msf_bridge=self.msf_bridge,
+            on_event=self._on_goal_event,
+        )
+        self._goal_engine.set_goal(objective)
+        self.goal_panel.update_goal(objective, "RUNNING")
+        self.run_worker(self._goal_engine.start(), exclusive=True)
+
+    def _on_goal_event(self, event: dict) -> None:
+        etype = event["type"]
+
+        if etype == "mission_start":
+            self.feed.write(f"\n  [{CYAN}]◈ MISSION ACTIVE[/] ─────────────────────────────")
+            self.feed.write(f"  [{CYAN}]Goal:[/] {event.get('goal', '')}")
+
+        elif etype == "step":
+            action = event.get("action_type", "")
+            tool = event.get("tool", "")
+            target = event.get("target", "")
+            color = {"recon": CYAN, "exploit": "yellow", "payload_delivery": "red"}.get(action, "white")
+            self.feed.write(f"\n  [bold {color}]▸ {action.upper():<10}[/] {tool} → {target}  [dim]⟳[/]")
+
+        elif etype == "step_complete":
+            output = event.get("output", "")
+            self.feed.write(f"    [dim]{output}[/]  [{CYAN}]✓[/]")
+
+        elif etype == "step_failed":
+            self.feed.write(f"    [red]✗ {event.get('error', 'failed')}[/]")
+
+        elif etype == "step_skipped":
+            self.feed.write(f"    [yellow]⊘ step {event.get('step_id')} skipped[/]")
+
+        elif etype == "session_opened":
+            sid = event.get("session_id", "?")
+            stype = event.get("session_type", "unknown")
+            self.feed.write(f"    [green]► Session {sid} opened [{stype}][/]")
+
+        elif etype == "post_ex":
+            cmd = event.get("command", "")
+            output = event.get("output", "").strip()
+            self.feed.write(f"  [dim]┌─ POST-EX[/]")
+            self.feed.write(f"  [dim]│[/] {cmd:<12}→  [white]{output}[/]")
+            self.feed.write(f"  [dim]└{'─' * 40}[/]")
+
+        elif etype == "approval_required":
+            card = ActionCard(
+                action=f"{event.get('action')}/{event.get('tool')}",
+                target=event.get("target", ""),
+                module=event.get("tool", ""),
+                risk=event.get("risk", "HIGH"),
+                reason=event.get("reason", "AI-planned intrusive action"),
+            )
+            self._approval_event = asyncio.Event()
+            self.feed.write(format_action_card(card))
+
+        elif etype == "success":
+            self.feed.write(f"\n  [{CYAN}]◈[/] [green bold]MISSION COMPLETE[/] — goal achieved")
+            self.goal_panel.update_goal(self._goal_engine._goal, "SUCCESS")
+
+        elif etype == "dead_end":
+            suggestion = event.get("suggestion", "")
+            self.feed.write(f"\n  [yellow]◈ DEAD END[/] — {suggestion}")
+            self.goal_panel.update_goal(self._goal_engine._goal, "DEAD END")
+
+        elif etype == "ai_thinking":
+            text = event.get("text", "")
+            self.feed.write(f"  [dim italic {CYAN}]◈ AI  {text}[/]")
+
+        elif etype == "goal_changed":
+            new_goal = event.get("goal", "")
+            self.goal_panel.update_goal(new_goal, "RUNNING")
+            self.feed.write(f"  [{CYAN}]◈ Goal updated:[/] {new_goal}")
 
     def _do_scan(self, cmd) -> None:
         if not cmd.args:
-            self.log_view.write("[red]scan requires a target[/]")
+            self.feed.write("[red]scan requires a target[/]")
             return
         tool = cmd.flags.get("tool", "nmap")
         target = cmd.args[0]
         try:
             result = self.recon.scan(tool=tool, target=target)
+            self.feed.write(f"\n  [{CYAN}]▸ RECON      {tool} → {target}[/]")
             for host in result["hosts"]:
-                ports = ", ".join(str(p["port"]) for p in host["ports"])
-                self.log_view.write(f"[{CYAN}]{host['ip']}[/]  ports: {ports}")
+                for p in host["ports"]:
+                    self.feed.write(f"    ├─ {p['port']}/tcp  open")
         except Exception as e:
-            self.log_view.write(f"[red]scan failed:[/] {e}")
-
-    def _do_mission(self, cmd) -> None:
-        if self.model is None:
-            self.log_view.write(
-                "[red]AI mode not active.[/] Start with --model ollama to enable."
-            )
-            return
-        if len(cmd.args) < 2:
-            self.log_view.write("[red]usage: mission <target> <description words...>[/]")
-            return
-        target = cmd.args[0]
-        description = " ".join(cmd.args[1:])
-        self.run_worker(self._run_mission_pipeline(target, description), exclusive=True)
-
-    async def _run_mission_pipeline(self, target: str, description: str) -> None:
-        from spectrenet.ai.mission_planner import MissionPlanner
-        planner = MissionPlanner(self.model)
-        self.log_view.write(f"[{CYAN}]▶ Planning:[/] {description}")
-        plan = planner.plan(description, recon_results={"target": target})
-        if not plan.steps:
-            self.log_view.write("[red]Planner returned an empty plan.[/]")
-            return
-        self.log_view.write(f"[{CYAN}]{len(plan.steps)} steps planned:[/]")
-        for step in plan.steps:
-            approval_flag = " [APPROVAL REQUIRED]" if step.requires_approval else ""
-            self.log_view.write(
-                f"  {step.step_id}. {step.action_type} → {step.tool} @ {step.target}{approval_flag}"
-            )
-
-        for step in plan.steps:
-            if step.requires_approval:
-                card = ActionCard(
-                    action=f"{step.action_type}/{step.tool}",
-                    target=step.target,
-                    module=step.tool,
-                    risk=step.risk_level,
-                    reason=step.rationale or "AI-planned intrusive action",
-                )
-                result = await self._request_approval(card)
-                if result == ApprovalResult.DENIED:
-                    self.log_view.write(f"[yellow]Step {step.step_id} denied.[/]")
-                    continue
-                if result == ApprovalResult.SKIPPED:
-                    self.log_view.write(f"[yellow]Step {step.step_id} skipped.[/]")
-                    continue
-
-            await self._execute_step(step)
-
-        self.log_view.write(f"[{CYAN}]✓ Mission pipeline complete.[/]")
-
-    async def _request_approval(self, card: ActionCard) -> ApprovalResult:
-        self._approval_event = asyncio.Event()
-        self._approval_result = None
-        self.log_view.write(format_action_card(card))
-        await self._approval_event.wait()
-        self._approval_event = None
-        return self._approval_result
-
-    async def _execute_step(self, step) -> None:
-        if step.action_type == "recon":
-            try:
-                result = self.recon.scan(tool=step.tool, target=step.target, **step.params)
-                for host in result.get("hosts", []):
-                    ports = ", ".join(str(p["port"]) for p in host["ports"])
-                    self.log_view.write(f"[{CYAN}]{host['ip']}[/]  ports: {ports}")
-            except Exception as e:
-                self.log_view.write(f"[red]Step {step.step_id} failed:[/] {e}")
-        else:
-            self.log_view.write(
-                f"[yellow]Step {step.step_id}:[/] {step.action_type} via {step.tool} "
-                f"@ {step.target} — dispatched"
-            )
+            self.feed.write(f"[red]scan failed:[/] {e}")
