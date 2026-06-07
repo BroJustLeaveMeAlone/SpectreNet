@@ -6,270 +6,827 @@
   <title>SpectreNet — Team Dashboard</title>
   <style>
     :root {
-      --navy:      #0d1117;
-      --navy-light:#161b22;
-      --cyan:      #00d4ff;
-      --cyan-dim:  #006080;
-      --grey:      #8b949e;
-      --white:     #e6edf3;
-      --green:     #3fb950;
-      --yellow:    #d29922;
-      --red:       #f85149;
+      --bg:        #050d1a;
+      --surface:   #0a1628;
+      --border:    #16263f;
+      --border-hi: #1e3a5f;
+      --cyan:      #00c8ff;
+      --cyan-dim:  #0891b2;
+      --cyan-glow: rgba(0,200,255,.08);
+      --white:     #e8f1f8;
+      --grey:      #7a8ba0;
+      --success:   #4dffa3;
+      --warning:   #ffb84d;
+      --danger:    #ff4d6d;
+      --r: 6px;
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
     body {
-      background: var(--navy);
+      background: var(--bg);
       color: var(--white);
-      font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+      font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
       font-size: 13px;
-      min-height: 100vh;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
     }
-    header {
-      background: var(--navy-light);
-      border-bottom: 1px solid var(--cyan-dim);
-      padding: 12px 24px;
+
+    /* ── Typography helpers ─────────────────────────────────────── */
+    .mono  { font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace; }
+    .muted { color: var(--grey); }
+    .cyan  { color: var(--cyan); }
+    .ok    { color: var(--success); }
+    .warn  { color: var(--warning); }
+    .danger{ color: var(--danger); }
+
+    /* ── Top bar ────────────────────────────────────────────────── */
+    #topbar {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 20px;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      flex-shrink: 0;
+      z-index: 10;
+    }
+    #topbar .logo {
+      color: var(--cyan);
+      font-weight: 700;
+      font-size: 15px;
+      letter-spacing: .5px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    #topbar .logo .ghost { font-size: 18px; }
+    #topbar .tagline {
+      color: var(--grey);
+      font-size: 11px;
+      letter-spacing: .3px;
+    }
+    #topbar .spacer { flex: 1; }
+    #conn-badge {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 11px; color: var(--grey);
+    }
+    #conn-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--grey); transition: background .3s;
+    }
+    #conn-dot.live { background: var(--success); box-shadow: 0 0 6px var(--success); }
+    #conn-dot.err  { background: var(--danger); }
+
+    #op-badge {
+      display: flex; align-items: center; gap: 8px;
+      background: var(--border);
+      border: 1px solid var(--border-hi);
+      border-radius: 20px;
+      padding: 4px 12px 4px 8px;
+      font-size: 12px;
+    }
+    #op-dot { width:8px;height:8px;border-radius:50%;background:var(--success); }
+    #op-name { color: var(--cyan); font-weight: 600; }
+    #leave-btn {
+      background: none; border: none; color: var(--grey);
+      cursor: pointer; font-size: 12px; padding: 0;
+      margin-left: 4px;
+    }
+    #leave-btn:hover { color: var(--danger); }
+
+    /* ── Main layout ────────────────────────────────────────────── */
+    #layout {
+      display: grid;
+      grid-template-columns: 220px 1fr 260px;
+      flex: 1;
+      overflow: hidden;
+      gap: 0;
+    }
+
+    /* ── Shared panel styles ────────────────────────────────────── */
+    .panel {
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid var(--border);
+      overflow: hidden;
+    }
+    .panel:last-child { border-right: none; }
+    .panel-header {
+      padding: 12px 14px 10px;
+      border-bottom: 1px solid var(--border);
       display: flex;
       align-items: center;
       justify-content: space-between;
+      flex-shrink: 0;
     }
-    header h1 { color: var(--cyan); font-size: 18px; letter-spacing: 1px; }
-    header span { color: var(--grey); font-size: 11px; }
-    #status-dot {
-      width: 8px; height: 8px; border-radius: 50%;
-      background: var(--grey); display: inline-block;
-      margin-right: 6px; transition: background 0.3s;
-    }
-    #status-dot.connected { background: var(--green); }
-
-    main { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; padding: 20px 24px; }
-    @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
-
-    .card {
-      background: var(--navy-light);
-      border: 1px solid var(--cyan-dim);
-      border-radius: 6px;
-      padding: 14px 16px;
-    }
-    .card h2 {
-      color: var(--cyan);
-      font-size: 12px;
+    .panel-title {
+      font-size: 10px;
+      font-weight: 700;
       letter-spacing: 1.5px;
       text-transform: uppercase;
-      margin-bottom: 12px;
-      border-bottom: 1px solid var(--cyan-dim);
-      padding-bottom: 6px;
+      color: var(--cyan);
     }
-    .empty { color: var(--grey); font-style: italic; }
-    .badge {
-      display: inline-block; padding: 2px 8px;
-      border-radius: 3px; font-size: 11px; font-weight: bold;
-      margin-right: 4px;
+    .panel-count {
+      background: var(--border);
+      color: var(--grey);
+      font-size: 10px;
+      padding: 1px 7px;
+      border-radius: 10px;
     }
-    .badge-green  { background: rgba(63,185,80,.15); color: var(--green); border: 1px solid var(--green); }
-    .badge-yellow { background: rgba(210,153,34,.15); color: var(--yellow); border: 1px solid var(--yellow); }
-    .badge-red    { background: rgba(248,81,73,.15);  color: var(--red);    border: 1px solid var(--red); }
-    .badge-cyan   { background: rgba(0,212,255,.1);   color: var(--cyan);   border: 1px solid var(--cyan-dim); }
-
-    .session-item, .loot-item, .note-item, .event-item {
-      padding: 6px 0;
-      border-bottom: 1px solid rgba(255,255,255,0.05);
-      display: flex; align-items: flex-start; gap: 8px;
+    .panel-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px 12px;
     }
-    .session-item:last-child, .loot-item:last-child,
-    .note-item:last-child, .event-item:last-child { border-bottom: none; }
+    .panel-body::-webkit-scrollbar { width: 4px; }
+    .panel-body::-webkit-scrollbar-track { background: transparent; }
+    .panel-body::-webkit-scrollbar-thumb { background: var(--border-hi); border-radius: 2px; }
 
-    .ts { color: var(--grey); font-size: 11px; white-space: nowrap; }
-    .session-host { color: var(--cyan); font-weight: bold; }
-    .session-meta { color: var(--grey); font-size: 11px; }
+    /* ── Left: Operators ────────────────────────────────────────── */
+    #left-panel { background: var(--surface); }
 
-    #events-log { grid-column: 1 / -1; }
-    #events-list { max-height: 200px; overflow-y: auto; }
-
-    .broadcast-bar {
-      grid-column: 1 / -1;
-      display: flex; gap: 8px; padding: 0 0 4px;
+    .op-card {
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      margin-bottom: 6px;
+      background: var(--bg);
     }
-    .broadcast-bar input {
-      flex: 1; background: var(--navy-light); border: 1px solid var(--cyan-dim);
-      color: var(--white); padding: 6px 10px; border-radius: 4px; font-family: inherit;
+    .op-card-head {
+      display: flex; align-items: center; gap: 7px; margin-bottom: 4px;
+    }
+    .op-status-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--success); flex-shrink: 0;
+    }
+    .op-card-name { font-weight: 600; color: var(--white); font-size: 13px; }
+    .op-card-you  { font-size: 10px; color: var(--grey); }
+    .op-claim {
+      font-size: 11px; color: var(--grey);
+      display: flex; align-items: center; gap: 5px; margin-top: 2px;
+    }
+    .op-claim .target-name { color: var(--warning); font-family: monospace; }
+
+    .section-label {
+      font-size: 10px; letter-spacing: 1px; text-transform: uppercase;
+      color: var(--grey); padding: 8px 0 4px; font-weight: 600;
+    }
+
+    .claim-item {
+      display: flex; align-items: center; gap: 6px;
+      padding: 4px 0;
+      border-bottom: 1px solid var(--border);
       font-size: 12px;
     }
-    .broadcast-bar input:focus { outline: none; border-color: var(--cyan); }
-    .broadcast-bar button {
-      background: var(--cyan-dim); border: 1px solid var(--cyan); color: var(--cyan);
-      padding: 6px 16px; border-radius: 4px; cursor: pointer; font-family: inherit;
+    .claim-item:last-child { border-bottom: none; }
+    .claim-op { color: var(--cyan); font-weight: 600; }
+    .claim-arrow { color: var(--grey); }
+    .claim-target { font-family: monospace; color: var(--white); }
+    .release-btn {
+      margin-left: auto; background: none; border: none;
+      color: var(--grey); cursor: pointer; font-size: 11px; padding: 1px 4px;
     }
-    .broadcast-bar button:hover { background: var(--cyan); color: var(--navy); }
+    .release-btn:hover { color: var(--danger); }
 
-    #counters { display: flex; gap: 24px; padding: 0 24px 0; }
-    .counter { display: flex; flex-direction: column; align-items: center; }
-    .counter .num { font-size: 28px; font-weight: bold; color: var(--cyan); }
-    .counter .lbl { font-size: 10px; color: var(--grey); text-transform: uppercase; letter-spacing: 1px; }
+    /* ── Center: Tabbed content ─────────────────────────────────── */
+    #center-panel {
+      background: var(--bg);
+      border-right: 1px solid var(--border);
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+
+    #tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+      padding: 0 16px;
+      flex-shrink: 0;
+      background: var(--surface);
+    }
+    .tab {
+      padding: 12px 16px 11px;
+      font-size: 12px; font-weight: 500;
+      color: var(--grey); cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: color .15s, border-color .15s;
+      user-select: none;
+    }
+    .tab:hover { color: var(--white); }
+    .tab.active { color: var(--cyan); border-bottom-color: var(--cyan); }
+    .tab-count {
+      display: inline-block;
+      background: var(--border);
+      color: var(--grey); font-size: 10px;
+      padding: 0 5px; border-radius: 8px;
+      margin-left: 5px;
+    }
+
+    #tab-content { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+    .tab-pane { display: none; flex: 1; flex-direction: column; overflow: hidden; }
+    .tab-pane.active { display: flex; }
+
+    /* ── Add-form toolbar ───────────────────────────────────────── */
+    .add-bar {
+      display: flex; gap: 8px; padding: 10px 16px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      flex-shrink: 0;
+    }
+    .add-bar input, .add-bar select {
+      flex: 1; background: var(--bg);
+      border: 1px solid var(--border-hi);
+      color: var(--white); padding: 6px 10px;
+      border-radius: var(--r); font-size: 12px;
+      font-family: inherit;
+    }
+    .add-bar input:focus, .add-bar select:focus {
+      outline: none; border-color: var(--cyan);
+    }
+    .add-bar select { flex: 0 0 100px; }
+    .btn {
+      background: var(--cyan-dim); border: 1px solid var(--cyan);
+      color: var(--cyan); padding: 6px 14px; border-radius: var(--r);
+      cursor: pointer; font-size: 12px; font-weight: 600;
+      white-space: nowrap; transition: background .15s, color .15s;
+    }
+    .btn:hover { background: var(--cyan); color: var(--bg); }
+    .btn-sm {
+      background: none; border: 1px solid var(--border-hi);
+      color: var(--grey); padding: 3px 8px; border-radius: 4px;
+      cursor: pointer; font-size: 11px;
+    }
+    .btn-sm:hover { border-color: var(--danger); color: var(--danger); }
+
+    /* ── Data rows ──────────────────────────────────────────────── */
+    .data-list { flex: 1; overflow-y: auto; padding: 8px 16px; }
+    .data-list::-webkit-scrollbar { width: 4px; }
+    .data-list::-webkit-scrollbar-thumb { background: var(--border-hi); border-radius: 2px; }
+
+    .row {
+      padding: 9px 12px;
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      margin-bottom: 6px;
+      background: var(--surface);
+      display: flex; align-items: flex-start; gap: 10px;
+    }
+    .row:hover { border-color: var(--border-hi); }
+    .row-body { flex: 1; min-width: 0; }
+    .row-title {
+      font-weight: 600; color: var(--white);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .row-meta { color: var(--grey); font-size: 11px; margin-top: 2px; }
+
+    .badge {
+      display: inline-flex; align-items: center;
+      padding: 2px 8px; border-radius: 4px;
+      font-size: 10px; font-weight: 700; flex-shrink: 0;
+      letter-spacing: .5px; text-transform: uppercase;
+    }
+    .b-green  { background: rgba(77,255,163,.1); color: var(--success); border: 1px solid rgba(77,255,163,.3); }
+    .b-cyan   { background: var(--cyan-glow);    color: var(--cyan);    border: 1px solid var(--cyan-dim); }
+    .b-yellow { background: rgba(255,184,77,.1); color: var(--warning); border: 1px solid rgba(255,184,77,.3); }
+    .b-red    { background: rgba(255,77,109,.1); color: var(--danger);  border: 1px solid rgba(255,77,109,.3); }
+    .b-grey   { background: var(--border);       color: var(--grey);    border: 1px solid var(--border-hi); }
+
+    .empty-state {
+      color: var(--grey); font-style: italic;
+      padding: 24px 0; text-align: center;
+    }
+
+    /* ── Right: Live feed ───────────────────────────────────────── */
+    #right-panel { background: var(--surface); }
+    .event-row {
+      padding: 6px 0;
+      border-bottom: 1px solid rgba(255,255,255,.04);
+      display: flex; gap: 8px; align-items: flex-start;
+    }
+    .event-row:last-child { border-bottom: none; }
+    .event-ts { color: var(--grey); font-size: 10px; white-space: nowrap; flex-shrink: 0; font-family: monospace; }
+    .event-body { flex: 1; min-width: 0; }
+    .event-type { font-size: 11px; font-weight: 600; }
+    .event-detail { font-size: 11px; color: var(--grey); word-break: break-all; }
+
+    /* ── Join dialog ────────────────────────────────────────────── */
+    #join-overlay {
+      position: fixed; inset: 0;
+      background: rgba(5,13,26,.85);
+      backdrop-filter: blur(4px);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 100;
+    }
+    #join-dialog {
+      background: var(--surface);
+      border: 1px solid var(--border-hi);
+      border-radius: 10px;
+      padding: 32px;
+      width: 360px;
+      box-shadow: 0 24px 64px rgba(0,0,0,.6), 0 0 0 1px var(--border);
+    }
+    #join-dialog h2 {
+      color: var(--cyan); font-size: 20px;
+      margin-bottom: 4px; letter-spacing: .3px;
+    }
+    #join-dialog p { color: var(--grey); font-size: 12px; margin-bottom: 20px; }
+    #join-dialog input {
+      width: 100%; background: var(--bg); border: 1px solid var(--border-hi);
+      color: var(--white); padding: 10px 14px; border-radius: var(--r);
+      font-size: 14px; font-family: inherit; margin-bottom: 14px;
+    }
+    #join-dialog input:focus { outline: none; border-color: var(--cyan); }
+    #join-dialog .btn { width: 100%; padding: 10px; font-size: 14px; }
+    .dialog-logo { font-size: 36px; margin-bottom: 16px; }
+
+    /* ── Claim input row in left panel ─────────────────────────── */
+    .claim-input-row {
+      display: flex; gap: 6px; margin-top: 6px;
+    }
+    .claim-input-row input {
+      flex: 1; background: var(--bg); border: 1px solid var(--border-hi);
+      color: var(--white); padding: 5px 8px; border-radius: 4px;
+      font-size: 11px; font-family: monospace;
+    }
+    .claim-input-row input:focus { outline: none; border-color: var(--cyan); }
+    .claim-input-row button {
+      background: none; border: 1px solid var(--cyan-dim); color: var(--cyan);
+      padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 11px;
+    }
+    .claim-input-row button:hover { background: var(--cyan-dim); }
+
+    /* ── Conflict toast ─────────────────────────────────────────── */
+    #toast {
+      position: fixed; bottom: 24px; right: 24px;
+      background: rgba(255,184,77,.15); border: 1px solid var(--warning);
+      color: var(--warning); padding: 10px 16px; border-radius: var(--r);
+      font-size: 12px; max-width: 320px;
+      display: none; z-index: 200;
+    }
   </style>
 </head>
 <body>
 
-<header>
-  <h1>⬡ SpectreNet — Team Dashboard</h1>
-  <span>
-    <span id="status-dot"></span>
-    <span id="status-text">Connecting…</span>
-  </span>
-</header>
-
-<div id="counters" style="padding: 16px 24px 0;">
-  <div class="counter"><span class="num" id="cnt-sessions">0</span><span class="lbl">Sessions</span></div>
-  <div class="counter"><span class="num" id="cnt-loot">0</span><span class="lbl">Loot</span></div>
-  <div class="counter"><span class="num" id="cnt-notes">0</span><span class="lbl">Notes</span></div>
-  <div class="counter"><span class="num" id="cnt-targets">0</span><span class="lbl">Targets</span></div>
+<!-- ── Join overlay ────────────────────────────────────────────────────────── -->
+<div id="join-overlay">
+  <div id="join-dialog">
+    <div class="dialog-logo">◈</div>
+    <h2>SpectreNet</h2>
+    <p>Always one step ahead — enter your operator name to join the team session.</p>
+    <input id="join-name" type="text" placeholder="Operator name (e.g. Spectre-01)" autocomplete="off" />
+    <button class="btn" onclick="joinOp()">Join Session</button>
+  </div>
 </div>
 
-<main>
-  <div class="broadcast-bar">
-    <input id="bcast-input" type="text" placeholder="Broadcast message to all operators…" />
-    <button onclick="broadcast()">Send</button>
+<!-- ── Top bar ─────────────────────────────────────────────────────────────── -->
+<div id="topbar">
+  <div class="logo">
+    <span class="ghost">◈</span>
+    SpectreNet
+  </div>
+  <span class="tagline">Always one step ahead</span>
+  <div class="spacer"></div>
+  <div id="conn-badge">
+    <div id="conn-dot"></div>
+    <span id="conn-text">Connecting…</span>
+  </div>
+  <div id="op-badge" style="display:none">
+    <div id="op-dot"></div>
+    <span id="op-name"></span>
+    <button id="leave-btn" title="Leave session" onclick="leaveOp()">✕</button>
+  </div>
+</div>
+
+<!-- ── Main layout ─────────────────────────────────────────────────────────── -->
+<div id="layout">
+
+  <!-- Left: Operators + Claims -->
+  <div class="panel" id="left-panel">
+    <div class="panel-header">
+      <span class="panel-title">Operators</span>
+      <span class="panel-count" id="op-count">0</span>
+    </div>
+    <div class="panel-body">
+      <div id="op-list"><span class="muted">No operators online</span></div>
+
+      <div class="section-label" style="margin-top:14px">Claims</div>
+      <div id="claims-list"><span class="muted" style="font-size:11px">No active claims</span></div>
+
+      <div class="section-label" style="margin-top:14px">Claim a target</div>
+      <div class="claim-input-row">
+        <input id="claim-ip" type="text" placeholder="10.0.0.1" />
+        <button onclick="claimTarget()">Claim</button>
+      </div>
+    </div>
   </div>
 
-  <div class="card">
-    <h2>Active Sessions</h2>
-    <div id="sessions-list"><span class="empty">No sessions</span></div>
+  <!-- Center: Tabbed content -->
+  <div id="center-panel">
+    <div id="tabs">
+      <div class="tab active" onclick="switchTab('sessions')">
+        Sessions <span class="tab-count" id="tc-sessions">0</span>
+      </div>
+      <div class="tab" onclick="switchTab('targets')">
+        Targets <span class="tab-count" id="tc-targets">0</span>
+      </div>
+      <div class="tab" onclick="switchTab('loot')">
+        Loot <span class="tab-count" id="tc-loot">0</span>
+      </div>
+      <div class="tab" onclick="switchTab('notes')">
+        Notes <span class="tab-count" id="tc-notes">0</span>
+      </div>
+    </div>
+
+    <div id="tab-content">
+
+      <!-- Sessions -->
+      <div class="tab-pane active" id="pane-sessions">
+        <div class="data-list" id="sessions-list">
+          <div class="empty-state">No active sessions</div>
+        </div>
+      </div>
+
+      <!-- Targets -->
+      <div class="tab-pane" id="pane-targets">
+        <div class="add-bar">
+          <input id="target-input" type="text" placeholder="Add target CIDR — e.g. 10.0.0.0/24" />
+          <button class="btn" onclick="addTarget()">Add</button>
+        </div>
+        <div class="data-list" id="targets-list">
+          <div class="empty-state">No targets in scope</div>
+        </div>
+      </div>
+
+      <!-- Loot -->
+      <div class="tab-pane" id="pane-loot">
+        <div class="add-bar">
+          <select id="loot-type">
+            <option value="cred">cred</option>
+            <option value="hash">hash</option>
+            <option value="secret">secret</option>
+            <option value="file">file</option>
+          </select>
+          <input id="loot-text" type="text" placeholder="Paste credential, hash, or secret…" />
+          <button class="btn" onclick="addLoot()">Add</button>
+        </div>
+        <div class="data-list" id="loot-list">
+          <div class="empty-state">Loot vault empty</div>
+        </div>
+      </div>
+
+      <!-- Notes -->
+      <div class="tab-pane" id="pane-notes">
+        <div class="add-bar">
+          <input id="note-text" type="text" placeholder="Add a note…" />
+          <button class="btn" onclick="addNote()">Add</button>
+        </div>
+        <div class="data-list" id="notes-list">
+          <div class="empty-state">No notes</div>
+        </div>
+      </div>
+
+    </div>
   </div>
 
-  <div class="card">
-    <h2>Loot Vault</h2>
-    <div id="loot-list"><span class="empty">No loot yet</span></div>
+  <!-- Right: Live event feed -->
+  <div class="panel" id="right-panel">
+    <div class="panel-header">
+      <span class="panel-title">Live Feed</span>
+      <button class="btn-sm" onclick="clearFeed()">Clear</button>
+    </div>
+    <div class="panel-body" id="event-feed"></div>
   </div>
 
-  <div class="card">
-    <h2>Notes</h2>
-    <div id="notes-list"><span class="empty">No notes</span></div>
-  </div>
+</div>
 
-  <div class="card" id="events-log" style="grid-column: 1 / -1;">
-    <h2>Event Log</h2>
-    <div id="events-list"></div>
-  </div>
-</main>
+<!-- Toast notification -->
+<div id="toast"></div>
 
 <script>
+'use strict';
+
+// ── State ──────────────────────────────────────────────────────────────────────
+let operatorName = '';
+let sse = null;
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 const $ = id => document.getElementById(id);
+const ts = iso => (iso || '').slice(11, 16);
+const tsDate = iso => (iso || '').slice(0, 16).replace('T', ' ');
 
-// ── Fetch initial state ───────────────────────────────────────────────────────
-async function loadAll() {
-  const [s, l, n, t] = await Promise.all([
-    fetch('/api/sessions').then(r => r.json()),
-    fetch('/api/loot').then(r => r.json()),
-    fetch('/api/notes').then(r => r.json()),
-    fetch('/api/targets').then(r => r.json()),
-  ]);
-  renderSessions(s.sessions || []);
-  renderLoot(l.loot || []);
-  renderNotes(n.notes || []);
-  $('cnt-targets').textContent = (t.targets || []).length;
+function toast(msg, ms = 3500) {
+  const el = $('toast');
+  el.textContent = msg;
+  el.style.display = 'block';
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.style.display = 'none', ms);
 }
 
-// ── Rendering ─────────────────────────────────────────────────────────────────
-function badgeType(type) {
-  const map = { cred: 'badge-red', hash: 'badge-yellow', file: 'badge-cyan', secret: 'badge-yellow' };
-  return `<span class="badge ${map[type] || 'badge-cyan'}">${type}</span>`;
-}
-
-function ts(iso) {
-  return iso ? iso.slice(0,16).replace('T',' ') : '';
-}
-
-function renderSessions(sessions) {
-  $('cnt-sessions').textContent = sessions.length;
-  if (!sessions.length) { $('sessions-list').innerHTML = '<span class="empty">No sessions</span>'; return; }
-  $('sessions-list').innerHTML = sessions.map(s => `
-    <div class="session-item">
-      <span class="badge badge-green">#${s.id}</span>
-      <div>
-        <div class="session-host">${s.host}</div>
-        <div class="session-meta">${s.platform} · ${s.user || '?'} · PID ${s.pid || '?'}</div>
-        <div class="ts">${ts(s.opened)}</div>
-      </div>
-    </div>`).join('');
-}
-
-function renderLoot(loot) {
-  $('cnt-loot').textContent = loot.length;
-  if (!loot.length) { $('loot-list').innerHTML = '<span class="empty">No loot yet</span>'; return; }
-  $('loot-list').innerHTML = loot.slice(-20).reverse().map(e => `
-    <div class="loot-item">
-      ${badgeType(e.type)}
-      <div style="flex:1;overflow:hidden">
-        <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e.text}</div>
-        <div class="ts">${e.operator} · ${ts(e.t)}</div>
-      </div>
-    </div>`).join('');
-}
-
-function renderNotes(notes) {
-  $('cnt-notes').textContent = notes.length;
-  if (!notes.length) { $('notes-list').innerHTML = '<span class="empty">No notes</span>'; return; }
-  $('notes-list').innerHTML = notes.slice(-10).reverse().map(n => `
-    <div class="note-item">
-      <div>
-        <div>${n.text}</div>
-        <div class="ts">${n.operator} · ${ts(n.t)}</div>
-      </div>
-    </div>`).join('');
-}
-
-function addEvent(evt) {
-  const el = $('events-list');
-  const div = document.createElement('div');
-  div.className = 'event-item';
-  div.innerHTML = `<span class="ts">${ts(evt.t || new Date().toISOString())}</span>
-    <span class="badge badge-cyan">${evt.type}</span>
-    <span>${JSON.stringify(evt.data || {})}</span>`;
-  el.insertBefore(div, el.firstChild);
-  if (el.children.length > 100) el.removeChild(el.lastChild);
-}
-
-// ── SSE connection ─────────────────────────────────────────────────────────────
-function connect() {
-  const es = new EventSource('/api/events');
-  es.onopen = () => {
-    $('status-dot').className = 'connected';
-    $('status-text').textContent = 'Connected';
-  };
-  es.onmessage = e => {
-    const evt = JSON.parse(e.data);
-    if (evt.type === 'ping' || evt.type === 'connected') return;
-    addEvent(evt);
-    if (evt.type === 'session_opened' || evt.type === 'session_killed') loadAll();
-    if (evt.type === 'loot_added')  loadAll();
-    if (evt.type === 'note_added')  loadAll();
-    if (evt.type === 'target_added') loadAll();
-  };
-  es.onerror = () => {
-    $('status-dot').className = '';
-    $('status-text').textContent = 'Reconnecting…';
-    es.close();
-    setTimeout(connect, 3000);
-  };
-}
-
-// ── Broadcast ─────────────────────────────────────────────────────────────────
-async function broadcast() {
-  const msg = $('bcast-input').value.trim();
-  if (!msg) return;
-  await fetch('/api/events/broadcast', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({message: msg, operator: 'dashboard'}),
+// ── Tabs ──────────────────────────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => {
+    if (t.onclick.toString().includes(`'${name}'`)) t.classList.add('active');
   });
-  $('bcast-input').value = '';
+  $(`pane-${name}`).classList.add('active');
 }
 
-$('bcast-input').addEventListener('keydown', e => { if (e.key === 'Enter') broadcast(); });
+// ── Operator join / leave ──────────────────────────────────────────────────────
+async function joinOp() {
+  const name = $('join-name').value.trim();
+  if (!name) return;
+  await api('POST', '/api/operators/join', { name });
+  operatorName = name;
+  $('op-name').textContent = name;
+  $('op-badge').style.display = 'flex';
+  $('join-overlay').style.display = 'none';
+  loadAll();
+  connectSSE();
+}
+
+async function leaveOp() {
+  if (!operatorName) return;
+  await api('POST', '/api/operators/leave', { name: operatorName });
+  operatorName = '';
+  $('op-badge').style.display = 'none';
+  $('join-overlay').style.display = 'flex';
+  if (sse) { sse.close(); sse = null; }
+}
+
+$('join-name').addEventListener('keydown', e => { if (e.key === 'Enter') joinOp(); });
+
+// ── Target claim / release ─────────────────────────────────────────────────────
+async function claimTarget() {
+  const target = $('claim-ip').value.trim();
+  if (!target || !operatorName) return;
+  const res = await api('POST', '/api/operators/claim', { operator: operatorName, target });
+  if (res.status === 'conflict') {
+    toast(`⚠ Conflict: ${res.warning}`);
+  }
+  $('claim-ip').value = '';
+  loadOperators();
+}
+
+async function releaseTarget(target) {
+  await fetch(`/api/operators/claim/${encodeURIComponent(target)}?operator=${encodeURIComponent(operatorName)}`, {
+    method: 'DELETE',
+  });
+  loadOperators();
+}
+
+$('claim-ip').addEventListener('keydown', e => { if (e.key === 'Enter') claimTarget(); });
+
+// ── Data add actions ──────────────────────────────────────────────────────────
+async function addTarget() {
+  const cidr = $('target-input').value.trim();
+  if (!cidr) return;
+  await api('POST', '/api/targets', { cidr });
+  $('target-input').value = '';
+  loadTargets();
+}
+
+async function addLoot() {
+  const text = $('loot-text').value.trim();
+  const loot_type = $('loot-type').value;
+  if (!text) return;
+  await api('POST', '/api/loot', { loot_type, text, operator: operatorName || 'dashboard' });
+  $('loot-text').value = '';
+  loadLoot();
+}
+
+async function addNote() {
+  const text = $('note-text').value.trim();
+  if (!text) return;
+  await api('POST', '/api/notes', { text, operator: operatorName || 'dashboard' });
+  $('note-text').value = '';
+  loadNotes();
+}
+
+async function killSession(id) {
+  if (!confirm(`Kill session #${id}?`)) return;
+  await fetch(`/api/sessions/${id}`, { method: 'DELETE' });
+  loadSessions();
+}
+
+$('target-input').addEventListener('keydown', e => { if (e.key === 'Enter') addTarget(); });
+$('loot-text').addEventListener('keydown', e => { if (e.key === 'Enter') addLoot(); });
+$('note-text').addEventListener('keydown', e => { if (e.key === 'Enter') addNote(); });
+
+// ── API helper ────────────────────────────────────────────────────────────────
+async function api(method, url, body) {
+  const r = await fetch(url, {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  return r.json().catch(() => ({}));
+}
+
+// ── Loaders ───────────────────────────────────────────────────────────────────
+async function loadAll() {
+  await Promise.all([loadSessions(), loadTargets(), loadLoot(), loadNotes(), loadOperators()]);
+}
+
+async function loadSessions() {
+  const d = await api('GET', '/api/sessions');
+  const sessions = d.sessions || [];
+  $('tc-sessions').textContent = sessions.length;
+  const el = $('sessions-list');
+  if (!sessions.length) {
+    el.innerHTML = '<div class="empty-state">No active sessions</div>';
+    return;
+  }
+  el.innerHTML = sessions.map(s => `
+    <div class="row">
+      <span class="badge b-green">#${s.id}</span>
+      <div class="row-body">
+        <div class="row-title mono">${s.host}</div>
+        <div class="row-meta">${s.platform} · user: ${s.user || '?'} · pid: ${s.pid || '?'}</div>
+        <div class="row-meta">${tsDate(s.opened)}</div>
+      </div>
+      <button class="btn-sm" onclick="killSession(${s.id})">Kill</button>
+    </div>`).join('');
+}
+
+async function loadTargets() {
+  const d = await api('GET', '/api/targets');
+  const targets = d.targets || [];
+  $('tc-targets').textContent = targets.length;
+  const el = $('targets-list');
+  if (!targets.length) {
+    el.innerHTML = '<div class="empty-state">No targets in scope</div>';
+    return;
+  }
+  el.innerHTML = targets.map(t => `
+    <div class="row">
+      <span class="badge b-cyan">scope</span>
+      <div class="row-body mono">${t}</div>
+    </div>`).join('');
+}
+
+async function loadLoot() {
+  const d = await api('GET', '/api/loot');
+  const loot = d.loot || [];
+  $('tc-loot').textContent = loot.length;
+  const el = $('loot-list');
+  if (!loot.length) {
+    el.innerHTML = '<div class="empty-state">Loot vault empty</div>';
+    return;
+  }
+  const typeClass = { cred: 'b-red', hash: 'b-yellow', secret: 'b-yellow', file: 'b-cyan' };
+  el.innerHTML = [...loot].reverse().slice(0, 50).map(e => `
+    <div class="row">
+      <span class="badge ${typeClass[e.type] || 'b-grey'}">${e.type}</span>
+      <div class="row-body">
+        <div class="row-title mono" style="font-size:12px">${e.text}</div>
+        <div class="row-meta">${e.operator} · ${tsDate(e.t)}</div>
+      </div>
+    </div>`).join('');
+}
+
+async function loadNotes() {
+  const d = await api('GET', '/api/notes');
+  const notes = d.notes || [];
+  $('tc-notes').textContent = notes.length;
+  const el = $('notes-list');
+  if (!notes.length) {
+    el.innerHTML = '<div class="empty-state">No notes</div>';
+    return;
+  }
+  el.innerHTML = [...notes].reverse().slice(0, 50).map(n => `
+    <div class="row">
+      <div class="row-body">
+        <div class="row-title">${n.text}</div>
+        <div class="row-meta">${n.operator} · ${tsDate(n.t)}</div>
+      </div>
+    </div>`).join('');
+}
+
+async function loadOperators() {
+  const d = await api('GET', '/api/operators');
+  const operators = d.operators || [];
+  const claims   = d.claims || {};
+  $('op-count').textContent = operators.length;
+
+  // Operator cards
+  const opEl = $('op-list');
+  if (!operators.length) {
+    opEl.innerHTML = '<span class="muted" style="font-size:12px">No operators online</span>';
+  } else {
+    opEl.innerHTML = operators.map(op => {
+      const target = op.active_target;
+      const isMe = op.name === operatorName;
+      return `
+        <div class="op-card">
+          <div class="op-card-head">
+            <div class="op-status-dot"></div>
+            <span class="op-card-name">${op.name}</span>
+            ${isMe ? '<span class="op-card-you">(you)</span>' : ''}
+          </div>
+          ${target ? `<div class="op-claim">◎ <span class="target-name">${target}</span></div>` : ''}
+        </div>`;
+    }).join('');
+  }
+
+  // Claims
+  const claimEl = $('claims-list');
+  const claimEntries = Object.entries(claims);
+  if (!claimEntries.length) {
+    claimEl.innerHTML = '<span class="muted" style="font-size:11px">No active claims</span>';
+  } else {
+    claimEl.innerHTML = claimEntries.map(([target, op]) => `
+      <div class="claim-item">
+        <span class="claim-op">${op}</span>
+        <span class="claim-arrow">→</span>
+        <span class="claim-target">${target}</span>
+        ${op === operatorName ? `<button class="release-btn" onclick="releaseTarget('${target}')">✕</button>` : ''}
+      </div>`).join('');
+  }
+}
+
+// ── Live event feed ───────────────────────────────────────────────────────────
+const EVENT_COLORS = {
+  session_opened:   'b-green',
+  session_killed:   'b-red',
+  loot_added:       'b-yellow',
+  note_added:       'b-cyan',
+  target_added:     'b-cyan',
+  operator_joined:  'b-green',
+  operator_left:    'b-grey',
+  target_claimed:   'b-cyan',
+  target_released:  'b-grey',
+  target_conflict:  'b-yellow',
+  operator_message: 'b-cyan',
+};
+
+function pushEvent(evt) {
+  const feed = $('event-feed');
+  const div = document.createElement('div');
+  div.className = 'event-row';
+  const color = EVENT_COLORS[evt.type] || 'b-grey';
+  const detail = evt.data ? JSON.stringify(evt.data).replace(/[{}"]/g, '').slice(0, 80) : '';
+  div.innerHTML = `
+    <span class="event-ts">${ts(evt.t || new Date().toISOString())}</span>
+    <div class="event-body">
+      <div class="event-type"><span class="badge ${color}">${evt.type}</span></div>
+      ${detail ? `<div class="event-detail">${detail}</div>` : ''}
+    </div>`;
+  feed.prepend(div);
+  while (feed.children.length > 120) feed.removeChild(feed.lastChild);
+}
+
+function clearFeed() { $('event-feed').innerHTML = ''; }
+
+// ── SSE connection ────────────────────────────────────────────────────────────
+function connectSSE() {
+  if (sse) sse.close();
+  sse = new EventSource('/api/events');
+
+  sse.onopen = () => {
+    $('conn-dot').className = 'live';
+    $('conn-text').textContent = 'Live';
+  };
+
+  sse.onmessage = e => {
+    let evt;
+    try { evt = JSON.parse(e.data); } catch { return; }
+    if (evt.type === 'ping') return;
+    if (evt.type === 'connected') {
+      $('conn-dot').className = 'live';
+      return;
+    }
+    pushEvent(evt);
+
+    // Refresh affected data sections
+    const refresh = {
+      session_opened: loadSessions, session_killed: loadSessions,
+      loot_added:     loadLoot,
+      note_added:     loadNotes,
+      target_added:   loadTargets,
+      operator_joined:  loadOperators, operator_left: loadOperators,
+      target_claimed:   loadOperators, target_released: loadOperators,
+      target_conflict:  () => { loadOperators(); toast(`⚠ Conflict: ${(evt.data||{}).target || ''}`); },
+    };
+    (refresh[evt.type] || (() => {}))();
+  };
+
+  sse.onerror = () => {
+    $('conn-dot').className = 'err';
+    $('conn-text').textContent = 'Reconnecting…';
+    sse.close();
+    setTimeout(connectSSE, 4000);
+  };
+}
 
 // ── Init ──────────────────────────────────────────────────────────────────────
-loadAll();
-connect();
-setInterval(loadAll, 10000);
+// Connect SSE immediately for the live indicator (no operator needed)
+connectSSE();
+
+// Periodic refresh every 15s as safety net
+setInterval(loadAll, 15000);
 </script>
 </body>
 </html>

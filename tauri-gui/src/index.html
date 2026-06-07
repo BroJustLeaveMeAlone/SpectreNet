@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SpectreNet</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<!-- ── Server offline screen ───────────────────────────────────────────────── -->
+<div id="offline-screen">
+  <div id="offline-card">
+    <div class="big-icon">◈</div>
+    <h1>SpectreNet</h1>
+    <p class="tagline">Always one step ahead</p>
+    <p class="offline-msg">Team server not running on <code>localhost:8888</code></p>
+    <p class="offline-hint">Start it with:</p>
+    <pre class="code-block">snet server</pre>
+    <button class="btn btn-primary" onclick="retryConnect()">Retry Connection</button>
+    <div id="retry-status" class="retry-status"></div>
+  </div>
+</div>
+
+<!-- ── Join overlay ─────────────────────────────────────────────────────────── -->
+<div id="join-overlay" style="display:none">
+  <div id="join-card">
+    <div class="big-icon" style="font-size:28px">◈</div>
+    <h2>Join Session</h2>
+    <p>Enter your operator name to connect to the team server.</p>
+    <input id="join-name" type="text" placeholder="Operator name — e.g. Spectre-01" autocomplete="off" />
+    <button class="btn btn-primary" onclick="joinOp()">Join</button>
+  </div>
+</div>
+
+<!-- ── Main app ──────────────────────────────────────────────────────────────── -->
+<div id="app" style="display:none">
+
+  <!-- Top bar -->
+  <div id="topbar">
+    <div class="logo">
+      <span class="logo-icon">◈</span>
+      <span class="logo-text">SpectreNet</span>
+    </div>
+    <div class="tagline-bar">Always one step ahead</div>
+    <div class="spacer"></div>
+    <div id="server-indicator">
+      <div id="server-dot" class="dot dot-live"></div>
+      <span id="server-label">Live</span>
+    </div>
+    <div id="op-chip">
+      <div class="dot dot-live"></div>
+      <span id="op-name-display"></span>
+      <button class="icon-btn" title="Leave session" onclick="leaveOp()">✕</button>
+    </div>
+  </div>
+
+  <!-- Layout -->
+  <div id="layout">
+
+    <!-- Left: Operators -->
+    <div class="side-panel" id="left">
+      <div class="section-head">
+        <span class="section-title">OPERATORS</span>
+        <span class="pill" id="op-count">0</span>
+      </div>
+      <div class="section-body" id="op-list"></div>
+
+      <div class="section-head" style="margin-top:12px">
+        <span class="section-title">CLAIMS</span>
+      </div>
+      <div class="section-body" id="claims-list"></div>
+
+      <div class="claim-form">
+        <input id="claim-input" type="text" placeholder="IP to claim…" class="mini-input" />
+        <button class="btn btn-outline btn-sm" onclick="claimTarget()">Claim</button>
+      </div>
+    </div>
+
+    <!-- Center: Tabbed content -->
+    <div id="center">
+      <div id="tabs">
+        <button class="tab active" data-tab="sessions" onclick="switchTab('sessions')">
+          Sessions <span class="pill" id="tc-sessions">0</span>
+        </button>
+        <button class="tab" data-tab="targets" onclick="switchTab('targets')">
+          Targets <span class="pill" id="tc-targets">0</span>
+        </button>
+        <button class="tab" data-tab="loot" onclick="switchTab('loot')">
+          Loot <span class="pill" id="tc-loot">0</span>
+        </button>
+        <button class="tab" data-tab="notes" onclick="switchTab('notes')">
+          Notes <span class="pill" id="tc-notes">0</span>
+        </button>
+      </div>
+
+      <div id="tab-body">
+
+        <!-- Sessions -->
+        <div class="pane active" id="pane-sessions">
+          <div class="list-area" id="sessions-list"></div>
+        </div>
+
+        <!-- Targets -->
+        <div class="pane" id="pane-targets">
+          <div class="add-row">
+            <input id="target-input" type="text" placeholder="CIDR — e.g. 10.0.0.0/24" />
+            <button class="btn btn-primary" onclick="addTarget()">Add</button>
+          </div>
+          <div class="list-area" id="targets-list"></div>
+        </div>
+
+        <!-- Loot -->
+        <div class="pane" id="pane-loot">
+          <div class="add-row">
+            <select id="loot-type">
+              <option value="cred">cred</option>
+              <option value="hash">hash</option>
+              <option value="secret">secret</option>
+              <option value="file">file</option>
+            </select>
+            <input id="loot-text" type="text" placeholder="Credential, hash, or secret…" />
+            <button class="btn btn-primary" onclick="addLoot()">Add</button>
+          </div>
+          <div class="list-area" id="loot-list"></div>
+        </div>
+
+        <!-- Notes -->
+        <div class="pane" id="pane-notes">
+          <div class="add-row">
+            <input id="note-text" type="text" placeholder="Add a note to share with the team…" />
+            <button class="btn btn-primary" onclick="addNote()">Add</button>
+          </div>
+          <div class="list-area" id="notes-list"></div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Right: Live feed -->
+    <div class="side-panel" id="right">
+      <div class="section-head">
+        <span class="section-title">LIVE FEED</span>
+        <button class="btn btn-ghost btn-sm" onclick="clearFeed()">Clear</button>
+      </div>
+      <div class="section-body feed-body" id="event-feed"></div>
+
+      <div class="broadcast-area">
+        <input id="bcast-input" type="text" placeholder="Broadcast to team…" class="mini-input" />
+        <button class="btn btn-outline btn-sm" onclick="broadcast()">Send</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script src="main.js"></script>
+</body>
+</html>

@@ -1,0 +1,22 @@
+[package]
+name    = "spectrenet"
+version = "1.0.0"
+edition = "2021"
+
+[lib]
+name = "spectrenet_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[[bin]]
+name = "spectrenet"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri              = { version = "2", features = ["tray-icon"] }
+tauri-plugin-shell = "2"
+serde              = { version = "1", features = ["derive"] }
+serde_json         = "1"
+reqwest            = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
