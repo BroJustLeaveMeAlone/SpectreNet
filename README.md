@@ -162,9 +162,91 @@ Phase 5 — Full Platform           ░░░░░░░░░░  Planned
 
 ---
 
-## Installation
+## Requirements
 
-> **Requires Python 3.11+.** `nmap` and `masscan` must be installed separately.
+SpectreNet runs without any external tools installed — the TUI and all Python logic work out of the box. External tools unlock specific capabilities as listed below.
+
+### System
+
+| Requirement | Version | Notes |
+|---|---|---|
+| **OS** | Linux, macOS, Windows | Linux recommended for full tool support |
+| **Python** | 3.11+ | |
+| **pip** | any recent | Comes with Python |
+
+### Python Packages (auto-installed)
+
+Installed automatically when you run `pip install -e .`:
+
+| Package | Purpose |
+|---|---|
+| `textual` ≥ 0.50 | Terminal UI framework |
+| `rich` ≥ 13.7 | Styled terminal output |
+| `pyyaml` ≥ 6.0 | Config file parsing |
+| `httpx` ≥ 0.27 | HTTP client for AI backends |
+
+Optional Python package for Metasploit integration:
+
+```bash
+pip install pymetasploit3        # enables msf console mode and session management
+```
+
+### External Security Tools
+
+All tools are **optional** — SpectreNet runs without them and shows `✗` next to unavailable tools in the status bar. Install only what you need.
+
+| Tool | What it unlocks | Install |
+|---|---|---|
+| **nmap** | Network scanning, port/service/OS detection | [nmap.org/download](https://nmap.org/download.html) |
+| **masscan** | High-speed port scanning across large ranges | [github.com/robertdavidgraham/masscan](https://github.com/robertdavidgraham/masscan) |
+| **sqlmap** | Automated SQL injection detection and exploitation | [sqlmap.org](https://sqlmap.org) |
+| **nikto** | Web server vulnerability scanning | [github.com/sullo/nikto](https://github.com/sullo/nikto) |
+| **nuclei** | Template-based CVE and vulnerability scanning | [github.com/projectdiscovery/nuclei](https://github.com/projectdiscovery/nuclei) |
+| **gobuster** | Directory and DNS brute-forcing | [github.com/OJ/gobuster](https://github.com/OJ/gobuster) |
+| **hydra** | Login brute-force (SSH, FTP, HTTP, SMB...) | [github.com/vanhauser-thc/thc-hydra](https://github.com/vanhauser-thc/thc-hydra) |
+| **msfvenom** | Payload generation (part of Metasploit) | see below |
+| **Metasploit Framework** | MSF console mode, exploit modules, sessions | [metasploit.com](https://www.metasploit.com/download) |
+
+**Quick install on Kali / Parrot / Debian:**
+```bash
+sudo apt install nmap masscan sqlmap nikto gobuster hydra metasploit-framework
+# nuclei (Go binary — install separately)
+go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest
+```
+
+**macOS (Homebrew):**
+```bash
+brew install nmap masscan sqlmap nikto gobuster hydra
+brew install --cask metasploit
+go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest
+```
+
+### AI Backend (optional)
+
+SpectreNet's AI mode requires **one** of the following:
+
+| Option | Cost | Setup |
+|---|---|---|
+| **Ollama** (local) | Free | Install from [ollama.com](https://ollama.com), then `ollama pull llama3.1:70b` |
+| **DeepSeek API** | Free tier available | Sign up at [platform.deepseek.com](https://platform.deepseek.com) |
+| **Qwen / other OpenAI-spec API** | Varies | Any OpenAI-compatible endpoint works |
+| **LM Studio / vLLM** (local) | Free | Point SpectreNet at your local server URL |
+
+Classic mode has **no AI requirement** — it works fully offline with just the external tools above.
+
+### Metasploit RPC (for MSF console mode)
+
+If Metasploit is installed, start the RPC daemon before launching SpectreNet:
+
+```bash
+msfrpcd -P msf -S false
+```
+
+SpectreNet connects automatically. If it's not running, MSF features are silently disabled — everything else still works.
+
+---
+
+## Installation
 
 ```bash
 # Clone
@@ -172,7 +254,10 @@ git clone https://github.com/BroJustLeaveMeAlone/SpectreNet.git
 cd SpectreNet
 
 # Install
-pip install -e ".[dev]"
+pip install -e .
+
+# Optional: Metasploit bridge
+pip install -e ".[msf]"
 
 # Launch
 spectrenet
@@ -180,21 +265,22 @@ spectrenet
 snet
 ```
 
-### Optional: Metasploit RPC (for MSF bridge)
-
-```bash
-# Start msfrpcd before launching SpectreNet
-msfrpcd -P msf -S false
-```
-
-### Optional: Ollama (for AI mode)
+### AI mode with Ollama
 
 ```bash
 # Install Ollama — https://ollama.com
 ollama pull llama3.1:70b
 
-# Launch with AI mode enabled
-spectrenet --model ollama
+# Launch SpectreNet and choose AI mode from the startup screen
+spectrenet
+```
+
+### AI mode with a free API (e.g. DeepSeek)
+
+```bash
+spectrenet
+# Press 2 at startup → select "OpenAI-compatible"
+# Enter: https://api.deepseek.com  /  deepseek-chat  /  your-api-key
 ```
 
 ---
