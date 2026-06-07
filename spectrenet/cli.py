@@ -12,8 +12,12 @@ def main() -> None:
         prog="spectrenet", description="SpectreNet — Always one step ahead"
     )
     parser.add_argument("--config", default="config.yaml")
-    parser.add_argument("--model", choices=["ollama", "none"], default=None,
+    parser.add_argument("--model", choices=["ollama", "openai", "none"], default=None,
                         help="AI model backend (overrides config)")
+    parser.add_argument("--openai-base-url", default=None,
+                        help="OpenAI-compatible API base URL (e.g. https://api.deepseek.com)")
+    parser.add_argument("--openai-api-key", default=None,
+                        help="API key for OpenAI-compatible backend")
     parser.add_argument("--msf-host", default="127.0.0.1", help="msfrpcd host")
     parser.add_argument("--msf-port", type=int, default=55553, help="msfrpcd port")
     parser.add_argument("--msf-password", default="msf", help="msfrpcd password")
@@ -36,6 +40,15 @@ def main() -> None:
             log.info("AI mode: Ollama (%s)", cfg.model_name)
         except Exception as e:
             log.warning("Failed to initialise Ollama backend: %s — running in Classic mode", e)
+    elif backend == "openai":
+        try:
+            from spectrenet.model.openai_backend import OpenAIBackend
+            base_url = args.openai_base_url or cfg.openai_base_url
+            api_key  = args.openai_api_key  or cfg.openai_api_key
+            model = OpenAIBackend(model=cfg.model_name, base_url=base_url, api_key=api_key)
+            log.info("AI mode: OpenAI-compatible (%s @ %s)", cfg.model_name, base_url)
+        except Exception as e:
+            log.warning("Failed to initialise OpenAI backend: %s — running in Classic mode", e)
 
     msf_bridge = None
     try:

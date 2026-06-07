@@ -1,4 +1,5 @@
 import asyncio
+import json
 import pytest
 from spectrenet.ai.goal_engine import GoalEngine
 from spectrenet.ai.mission_planner import PlanStep
@@ -181,3 +182,86 @@ async def test_goal_engine_pauses_for_approval_and_resumes():
     types = [e["type"] for e in events]
     assert "approval_required" in types
     assert "step_skipped" in types
+
+
+# ── Phase 4: recon execution + replanning tests ───────────────────────────────
+
+class FakeReconEngine:
+    def __init__(self, result: dict):
+        self._result = result
+        self.calls: list[dict] = []
+
+    def scan(self, tool: str, target: str, **kwargs) -> dict:
+        self.calls.append({"tool": tool, "target": target})
+        return self._result
+
+
+@pytest.mark.asyncio
+async def test_goal_engine_executes_recon_when_engine_injected():
+    recon_result = {
+        "hosts": [{"ip": "10.10.10.5", "ports": [
+            {"port": 445, "service": "microsoft-ds", "version": "4.6"}
+        ]}]
+    }
+    fake_recon = FakeReconEngine(recon_result)
+
+    events: list[dict] = []
+    engine = GoalEngine(
+        model=ScriptedModel([RECON_STEP_JSON]),
+        exploit_engine=FakeExploitEngine(),
+        msf_bridge=FakeMsfBridge(sessions=[]),
+        recon_engine=fake_recon,
+        on_event=events.append,
+        session_poll_timeout=0,
+        auto_approve=True,
+    )
+    engine.set_goal("find hosts on 10.10.10.5")
+    await engine.start()
+
+    assert len(fake_recon.calls) == 1
+    assert any(e["type"] == "recon_complete" for e in events)
+
+
+@pytest.mark.asyncio
+async def test_goal_engine_injects_failed_steps_detail_on_exploit_failure():
+    events: list[dict] = []
+    engine = GoalEngine(
+        model=ScriptedModel([EXPLOIT_STEP_JSON]),
+        exploit_engine=FakeExploitEngine({"success": False, "error": "module failed"}),
+        msf_bridge=FakeMsfBridge(sessions=[]),
+        on_event=events.append,
+        session_poll_timeout=0,
+        auto_approve=True,
+    )
+    engine.set_goal("exploit smb")
+    await engine.start()
+
+    assert "failed_steps_detail" in engine._state
+    assert len(engine._state["failed_steps_detail"]) >= 1
+
+
+@pytest.mark.asyncio
+async def test_goal_engine_emits_recon_complete_with_count():
+    recon_result = {
+        "hosts": [{"ip": "192.168.1.1", "ports": [
+            {"port": 80, "service": "http", "version": "Apache 2.4"}
+        ]}]
+    }
+    fake_recon = FakeReconEngine(recon_result)
+
+    events: list[dict] = []
+    engine = GoalEngine(
+        model=ScriptedModel([RECON_STEP_JSON]),
+        exploit_engine=FakeExploitEngine(),
+        msf_bridge=FakeMsfBridge(sessions=[]),
+        recon_engine=fake_recon,
+        on_event=events.append,
+        session_poll_timeout=0,
+        auto_approve=True,
+    )
+    engine.set_goal("recon 192.168.1.1")
+    await engine.start()
+
+    rc = [e for e in events if e["type"] == "recon_complete"]
+    assert rc
+    assert rc[0]["count"] == 1

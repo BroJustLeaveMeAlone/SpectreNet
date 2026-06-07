@@ -18,6 +18,8 @@ class GoalEngine:
         model: ModelInterface,
         exploit_engine: Any,
         msf_bridge: Any,
+        recon_engine: Any = None,
+        output_interpreter: Any = None,
         on_event: Callable[[dict], None] | None = None,
         session_poll_timeout: int = 60,
         auto_approve: bool = False,
@@ -25,6 +27,8 @@ class GoalEngine:
         self._model = model
         self._exploit_engine = exploit_engine
         self._msf_bridge = msf_bridge
+        self._recon_engine = recon_engine
+        self._interpreter = output_interpreter
         self._on_event = on_event or (lambda e: None)
         self._session_poll_timeout = session_poll_timeout
         self._auto_approve = auto_approve
@@ -102,12 +106,40 @@ class GoalEngine:
                 continue
 
             if step.action_type == "recon":
-                self._state.setdefault("recon", []).append(
-                    {"tool": step.tool, "target": step.target}
-                )
-                self._emit("step_complete", step_id=step.step_id,
-                           output=f"recon queued: {step.tool} → {step.target}")
-                self._no_progress_count = 0
+                if self._recon_engine is not None:
+                    try:
+                        result = self._recon_engine.scan(
+                            tool=step.tool, target=step.target, **(step.params or {})
+                        )
+                        if self._interpreter is not None:
+                            findings = self._interpreter.from_recon(result)
+                        else:
+                            findings = []
+                            for host in result.get("hosts", []):
+                                for p in host.get("ports", []):
+                                    findings.append({
+                                        "type": "open_port", "ip": host.get("ip", ""),
+                                        "port": p.get("port"), "service": p.get("service", ""),
+                                        "version": p.get("version", ""), "severity": "INFO",
+                                        "detail": f"port {p.get('port')}", "raw": str(p),
+                                    })
+                        self._state.setdefault("findings", []).extend(findings)
+                        self._emit("recon_complete", findings=findings, count=len(findings))
+                        self._no_progress_count = 0
+                    except Exception as exc:
+                        self._state.setdefault("failed_steps_detail", []).append({
+                            "step_id": step.step_id, "tool": step.tool,
+                            "target": step.target, "error": str(exc),
+                        })
+                        self._emit("step_failed", step_id=step.step_id, error=str(exc))
+                        self._no_progress_count += 1
+                else:
+                    self._state.setdefault("recon", []).append(
+                        {"tool": step.tool, "target": step.target}
+                    )
+                    self._emit("step_complete", step_id=step.step_id,
+                               output=f"recon queued: {step.tool} → {step.target}")
+                    self._no_progress_count = 0
             else:
                 await self._run_exploit_step(step)
 
@@ -123,15 +155,24 @@ class GoalEngine:
         result = self._exploit_engine.run_msf(step.tool, options)
 
         if not result.get("success"):
-            self._emit("step_failed", step_id=step.step_id, error=result.get("error", "unknown"))
+            err = result.get("error", "unknown")
+            self._state.setdefault("failed_steps_detail", []).append({
+                "step_id": step.step_id, "tool": step.tool,
+                "target": step.target, "error": err,
+            })
+            self._emit("step_failed", step_id=step.step_id, error=err)
             self._no_progress_count += 1
             self._state.setdefault("failed_steps", []).append(step.step_id)
             return
 
         new_session = await self._poll_for_session(prev_ids)
         if new_session is None:
-            self._emit("step_failed", step_id=step.step_id,
-                       error="no session opened within timeout")
+            err = "no session opened within timeout"
+            self._state.setdefault("failed_steps_detail", []).append({
+                "step_id": step.step_id, "tool": step.tool,
+                "target": step.target, "error": err,
+            })
+            self._emit("step_failed", step_id=step.step_id, error=err)
             self._no_progress_count += 1
             self._state.setdefault("failed_steps", []).append(step.step_id)
             return

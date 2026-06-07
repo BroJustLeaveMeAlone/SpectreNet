@@ -34,8 +34,8 @@
 ---
 
 ![Python](https://img.shields.io/badge/Python-3.11%2B-00c8ff?style=flat-square&logo=python&logoColor=white&labelColor=050d1a)
-![Phase](https://img.shields.io/badge/Phase-3%20Complete-00c8ff?style=flat-square&labelColor=050d1a)
-![Tests](https://img.shields.io/badge/Tests-78%20passed-4dffa3?style=flat-square&labelColor=050d1a)
+![Phase](https://img.shields.io/badge/Phase-4%20Complete-00c8ff?style=flat-square&labelColor=050d1a)
+![Tests](https://img.shields.io/badge/Tests-123%20passed-4dffa3?style=flat-square&labelColor=050d1a)
 ![License](https://img.shields.io/badge/License-MIT-00c8ff?style=flat-square&labelColor=050d1a)
 ![Status](https://img.shields.io/badge/Status-In%20Development-ffb84d?style=flat-square&labelColor=050d1a)
 
@@ -96,7 +96,7 @@ Every tool wrapper normalizes output to a common JSON schema. Drop a file into `
 | Desktop GUI | Tauri (Phase 4) |
 | Web dashboard | FastAPI — embedded, LAN-accessible (Phase 4) |
 | AI orchestration | Custom Python — direct prompt control |
-| Model backend | Ollama (local, default) — swappable to any OpenAI-compatible API |
+| Model backend | Ollama (local, default) · any OpenAI-spec endpoint (DeepSeek, Qwen, LM Studio, vLLM) |
 | MSF bridge | pymetasploit3 + msfrpc |
 | Recon tools | nmap, masscan |
 | Storage | SQLite (solo) / PostgreSQL (team, Phase 4) |
@@ -107,10 +107,11 @@ Every tool wrapper normalizes output to a common JSON schema. Drop a file into `
 ## Build Roadmap
 
 ```
-Phase 1 — Foundation          ██████████  COMPLETE  ✓
-Phase 2 — Core Attack Loop    ██████████  COMPLETE  ✓
-Phase 3 — Goal-Directed AI    ██████████  COMPLETE  ✓
-Phase 4 — Full Platform       ░░░░░░░░░░  Planned
+Phase 1 — Foundation              ██████████  COMPLETE  ✓
+Phase 2 — Core Attack Loop        ██████████  COMPLETE  ✓
+Phase 3 — Goal-Directed AI        ██████████  COMPLETE  ✓
+Phase 4 — Intelligence & Reporting ██████████  COMPLETE  ✓
+Phase 5 — Full Platform           ░░░░░░░░░░  Planned
 ```
 
 ### Phase 1 — Foundation ✓
@@ -143,11 +144,19 @@ Phase 4 — Full Platform       ░░░░░░░░░░  Planned
 - [x] `GoalPanel` + `SessionPanel` — live TUI widgets for goal status and session interaction
 - [x] TUI redesign — real-time styled activity feed + natural-language `ai>` input
 
-### Phase 4 — Full Platform
-- Web vulnerability engine (sqlmap, nuclei, nikto)
+### Phase 4 — Intelligence & Reporting ✓
+- [x] `OutputInterpreter` — structured finding extraction from recon, web vuln, and session output
+- [x] sqlmap, nuclei, nikto wrappers + `WebVulnEngine` orchestrator
+- [x] `ExploitMap` — SQLite service + version → MSF module knowledge base (10 seeded entries)
+- [x] `ReportWriter` — AI-generated Markdown pentest report at mission end
+- [x] `GoalEngine` recon execution — AI loop actually runs tools and reads results
+- [x] `GoalEngine` failure-aware replanning — failed steps injected into AI state for next cycle
+- [x] OpenAI-compatible backend — DeepSeek, Qwen, LM Studio, vLLM, or any OpenAI-spec endpoint
+
+### Phase 5 — Full Platform
+- Web dashboard (FastAPI + React)
 - Live network map (terminal rendering)
-- AI report writer
-- PostgreSQL + FastAPI team server + web dashboard
+- PostgreSQL team backend
 - Tauri desktop GUI
 - Fine-tuned security-domain model (LoRA on Llama 3.1)
 
@@ -196,9 +205,11 @@ Create `config.yaml` in the working directory to override defaults:
 
 ```yaml
 operator_name: alice           # shown in the audit log
-model_backend: ollama          # ollama | none
+model_backend: ollama          # ollama | openai | none
 model_name: llama3.1:70b
 ollama_url: http://localhost:11434
+openai_base_url: https://api.deepseek.com  # or http://localhost:1234 for LM Studio
+openai_api_key: sk-...
 storage_backend: sqlite
 db_path: spectrenet.db
 server_port: 7777
@@ -288,6 +299,8 @@ Recon and passive enumeration never require approval.
 | Phase 2 implementation plan | [`docs/superpowers/plans/2026-06-06-spectrenet-phase2-core-attack-loop.md`](docs/superpowers/plans/2026-06-06-spectrenet-phase2-core-attack-loop.md) |
 | Phase 3 design spec | [`docs/superpowers/specs/2026-06-06-spectrenet-phase3-design.md`](docs/superpowers/specs/2026-06-06-spectrenet-phase3-design.md) |
 | Phase 3 implementation plan | [`docs/superpowers/plans/2026-06-06-spectrenet-phase3-goal-loop.md`](docs/superpowers/plans/2026-06-06-spectrenet-phase3-goal-loop.md) |
+| Phase 4 design spec | [`docs/superpowers/specs/2026-06-07-spectrenet-phase4-design.md`](docs/superpowers/specs/2026-06-07-spectrenet-phase4-design.md) |
+| Phase 4 implementation plan | [`docs/superpowers/plans/2026-06-07-spectrenet-phase4-intelligence-reporting.md`](docs/superpowers/plans/2026-06-07-spectrenet-phase4-intelligence-reporting.md) |
 
 ---
 

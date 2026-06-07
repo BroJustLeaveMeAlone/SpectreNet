@@ -106,17 +106,21 @@ class SpectreNetApp(App):
             self.feed.write("[red]AI mode not active.[/] Start with --model ollama to enable.")
             return
         from spectrenet.ai.goal_engine import GoalEngine
+        from spectrenet.ai.output_interpreter import OutputInterpreter
         from spectrenet.engines.exploit import ExploitEngine
         from spectrenet.engines.exploit_modules.registry import ExploitModuleRegistry
 
         module_registry = ExploitModuleRegistry()
         module_registry.discover()
         exploit_engine = ExploitEngine(module_registry, self.msf_bridge)
+        output_interpreter = OutputInterpreter(model=self.model)
 
         self._goal_engine = GoalEngine(
             model=self.model,
             exploit_engine=exploit_engine,
             msf_bridge=self.msf_bridge,
+            recon_engine=self.recon,
+            output_interpreter=output_interpreter,
             on_event=self._on_goal_event,
         )
         self._goal_engine.set_goal(objective)
@@ -182,6 +186,23 @@ class SpectreNetApp(App):
         elif etype == "ai_thinking":
             text = event.get("text", "")
             self.feed.write(f"  [dim italic {CYAN}]◈ AI  {text}[/]")
+
+        elif etype == "recon_complete":
+            count = event.get("count", 0)
+            findings = event.get("findings", [])
+            self.feed.write(f"    [{CYAN}]◈ RECON COMPLETE[/] — {count} findings")
+            for f in findings[:5]:
+                ip = f.get("ip", "")
+                port = f.get("port", "")
+                svc = f.get("service", "")
+                ver = f.get("version", "")
+                self.feed.write(f"      [dim]├─ {ip}:{port}  {svc} {ver}[/]")
+            if count > 5:
+                self.feed.write(f"      [dim]└─ ... and {count - 5} more[/]")
+
+        elif etype == "replanning":
+            reason = event.get("reason", "")
+            self.feed.write(f"  [yellow]◈ REPLANNING[/] — {reason}")
 
         elif etype == "goal_changed":
             new_goal = event.get("goal", "")

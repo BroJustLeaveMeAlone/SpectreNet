@@ -7,6 +7,8 @@ class Config:
     model_backend: str = "ollama"
     model_name: str = "llama3.1:70b"
     ollama_url: str = "http://localhost:11434"
+    openai_base_url: str = "https://api.openai.com"
+    openai_api_key: str = ""
     storage_backend: str = "sqlite"
     db_path: str = "spectrenet.db"
     server_port: int = 7777
