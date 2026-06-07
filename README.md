@@ -34,8 +34,8 @@
 ---
 
 ![Python](https://img.shields.io/badge/Python-3.11%2B-00c8ff?style=flat-square&logo=python&logoColor=white&labelColor=050d1a)
-![Phase](https://img.shields.io/badge/Phase-3%20In%20Progress-ffb84d?style=flat-square&labelColor=050d1a)
-![Tests](https://img.shields.io/badge/Tests-69%20passed-4dffa3?style=flat-square&labelColor=050d1a)
+![Phase](https://img.shields.io/badge/Phase-3%20Complete-00c8ff?style=flat-square&labelColor=050d1a)
+![Tests](https://img.shields.io/badge/Tests-78%20passed-4dffa3?style=flat-square&labelColor=050d1a)
 ![License](https://img.shields.io/badge/License-MIT-00c8ff?style=flat-square&labelColor=050d1a)
 ![Status](https://img.shields.io/badge/Status-In%20Development-ffb84d?style=flat-square&labelColor=050d1a)
 
@@ -109,7 +109,7 @@ Every tool wrapper normalizes output to a common JSON schema. Drop a file into `
 ```
 Phase 1 — Foundation          ██████████  COMPLETE  ✓
 Phase 2 — Core Attack Loop    ██████████  COMPLETE  ✓
-Phase 3 — Goal-Directed AI    ████░░░░░░  In Progress
+Phase 3 — Goal-Directed AI    ██████████  COMPLETE  ✓
 Phase 4 — Full Platform       ░░░░░░░░░░  Planned
 ```
 
@@ -136,12 +136,12 @@ Phase 4 — Full Platform       ░░░░░░░░░░  Planned
 - [x] TUI `mission` command + async approval gate wired end-to-end
 - [x] CLI `--model` flag (Ollama / classic mode switch)
 
-### Phase 3 — Goal-Directed AI Loop *(in progress)*
+### Phase 3 — Goal-Directed AI Loop ✓
 - [x] `MsfConsole` — pymetasploit3 RPC console wrapper with poll-based output
 - [x] `SessionInteractor` — meterpreter / shell session command dispatch
-- [ ] `GoalEngine` — async autonomous goal-directed loop (plan → execute → observe → repeat)
-- [ ] `GoalPanel` + `SessionPanel` — live TUI widgets for goal status and session interaction
-- [ ] TUI redesign — real-time styled activity feed + natural-language `ai>` input
+- [x] `GoalEngine` — async autonomous goal-directed loop (plan → execute → observe → repeat)
+- [x] `GoalPanel` + `SessionPanel` — live TUI widgets for goal status and session interaction
+- [x] TUI redesign — real-time styled activity feed + natural-language `ai>` input
 
 ### Phase 4 — Full Platform
 - Web vulnerability engine (sqlmap, nuclei, nikto)
