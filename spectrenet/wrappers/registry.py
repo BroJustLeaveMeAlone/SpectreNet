@@ -41,8 +41,10 @@ class WrapperRegistry:
                     continue
                 instance = obj()
                 self._wrappers[instance.tool_name] = instance
-                status = "available" if instance.is_available() else "unavailable"
-                log.info("Registered wrapper '%s' (%s)", instance.tool_name, status)
+                if instance.is_available():
+                    log.info("Registered wrapper '%s' (available)", instance.tool_name)
+                else:
+                    log.debug("Registered wrapper '%s' (unavailable)", instance.tool_name)
 
     def names(self) -> list[str]:
         return sorted(self._wrappers)

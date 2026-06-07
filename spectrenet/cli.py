@@ -49,8 +49,10 @@ def main() -> None:
             password=args.msf_password,
         )
         msf_bridge.connect()
+    except ModuleNotFoundError:
+        log.debug("pymetasploit3 not installed — MSF bridge disabled (install with: pip install pymetasploit3)")
     except Exception as e:
-        log.warning("MSF bridge unavailable: %s", e)
+        log.debug("MSF bridge unavailable: %s", e)
 
     app = SpectreNetApp(registry=registry, recon=recon, config=cfg, msf_bridge=msf_bridge)
 
