@@ -21,16 +21,20 @@ log = logging.getLogger("spectrenet")
 _DIRECT_TOOLS = {
     "nmap", "masscan", "sqlmap", "nikto", "nuclei", "msfvenom",
     "gobuster", "hydra", "enum4linux", "whatweb", "searchsploit", "crackmapexec",
+    "shodan", "subfinder",
 }
 
 _COMPLETIONS = sorted(_DIRECT_TOOLS | {
-    "goal", "stop", "explain", "scan", "loot", "scope", "report",
+    "goal", "stop", "explain", "scan", "loot", "scope", "report", "postex",
     "note", "workspace", "classic", "help", "clear", "quit",
     "scan quick", "scan full", "scan stealth", "scan web", "scan udp", "scan vuln", "scan os",
     "loot add", "loot clear", "scope add", "scope strict",
+    "report html",
+    "postex sessions", "postex register", "postex enum", "postex pivot", "postex loot",
     "help nmap", "help masscan", "help sqlmap", "help msfvenom", "help nikto",
     "help nuclei", "help gobuster", "help hydra", "help msfconsole",
     "help enum4linux", "help whatweb", "help searchsploit", "help crackmapexec",
+    "help shodan", "help subfinder",
 })
 
 
@@ -118,6 +122,8 @@ class AIScreen(Screen):
             getattr(config, "scope_strict", False),
         )
         self._enricher   = CVEEnricher()
+        from spectrenet.engines.post_ex import PostExEngine
+        self._post_ex    = PostExEngine(loot=self._loot)
 
     # ------------------------------------------------------------------
     # Layout
@@ -271,7 +277,15 @@ class AIScreen(Screen):
 
         # report export
         if verb == "report":
-            self._generate_report()
+            rest = parts[1:]
+            if rest and rest[0].lower() == "html":
+                self._generate_report_html()
+            else:
+                self._generate_report()
+            return
+
+        if verb == "postex":
+            self._handle_postex(parts[1:])
             return
 
         if verb == "stop":
@@ -678,6 +692,94 @@ class AIScreen(Screen):
         self.feed.write(
             f"[{CYAN}]◈ Report saved →[/] [bold]{path}[/]  "
             f"[{GREY}]({len(md.splitlines())} lines)[/]"
+        )
+
+    def _generate_report_html(self) -> None:
+        from spectrenet.tui.report_exporter import generate_report_html
+        from datetime import datetime
+        operator = getattr(self._config, "operator_name", "operator") if self._config else "operator"
+        html = generate_report_html(self._workspace, self._loot, {}, operator)
+        ts   = datetime.now().strftime("%Y%m%d_%H%M%S")
+        path = f"spectrenet_report_{ts}.html"
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(html)
+        self.feed.write(
+            f"[{CYAN}]◈ HTML report saved →[/] [bold]{path}[/]  "
+            f"[{GREY}](open in browser, Ctrl+P → Save as PDF)[/]"
+        )
+
+    def _handle_postex(self, rest: list[str]) -> None:
+        sub = rest[0].lower() if rest else "sessions"
+
+        if sub == "sessions":
+            summary = self._post_ex.session_summary()
+            self.feed.write(f"\n[bold {CYAN}]◈ Post-Ex Sessions[/]")
+            self.feed.write(summary or f"[{GREY}]No active sessions.[/]")
+            return
+
+        if sub == "register" and len(rest) >= 2:
+            host     = rest[1]
+            platform = rest[2] if len(rest) > 2 else "unknown"
+            user     = rest[3] if len(rest) > 3 else "unknown"
+            s = self._post_ex.register_session(host, platform, user)
+            self.feed.write(
+                f"[{SUCCESS}]◈ Session {s.id} registered[/]  "
+                f"{host}  [{platform}]  user={user}"
+            )
+            return
+
+        if sub == "enum" and len(rest) >= 2:
+            try:
+                sid = int(rest[1])
+            except ValueError:
+                self.feed.write(f"[red]postex enum <session_id>[/]")
+                return
+            s = self._post_ex.get_session(sid)
+            if s is None:
+                self.feed.write(f"[red]Session {sid} not found.[/]")
+                return
+            cmds = self._post_ex.auto_enum_commands(s.platform)
+            self.feed.write(f"\n[bold {CYAN}]◈ Auto-enum for session {sid} ({s.platform})[/]")
+            for c in cmds:
+                self.feed.write(f"  [{GREY}]▸[/] [dim]{c}[/]")
+            return
+
+        if sub == "pivot" and len(rest) >= 2:
+            try:
+                sid = int(rest[1])
+            except ValueError:
+                self.feed.write(f"[red]postex pivot <session_id>[/]")
+                return
+            s = self._post_ex.get_session(sid)
+            if s is None:
+                self.feed.write(f"[red]Session {sid} not found.[/]")
+                return
+            targets = list(self._workspace._data.get("targets", []))
+            suggestions = self._post_ex.suggest_pivot(s, targets)
+            self.feed.write(f"\n[bold {CYAN}]◈ Pivot suggestions from session {sid}[/]")
+            for sug in suggestions:
+                self.feed.write(f"  [{GREY}]▸[/] [dim]{sug}[/]")
+            return
+
+        if sub == "loot" and len(rest) >= 3:
+            try:
+                sid = int(rest[1])
+            except ValueError:
+                self.feed.write(f"[red]postex loot <session_id> <output>[/]")
+                return
+            output_text = " ".join(rest[2:])
+            creds  = self._post_ex.extract_creds(output_text)
+            hashes = self._post_ex.extract_hashes(output_text)
+            total  = len(creds) + len(hashes)
+            self.feed.write(
+                f"[{SUCCESS}]◈ Extracted {total} items[/] from session {sid} output  "
+                f"({len(creds)} creds, {len(hashes)} hashes) → loot vault"
+            )
+            return
+
+        self.feed.write(
+            f"[{GREY}]postex sessions  |  postex register <host> [platform] [user]  |  "
+            f"postex enum <id>  |  postex pivot <id>  |  postex loot <id> <output>[/]"
         )
 
     # ------------------------------------------------------------------

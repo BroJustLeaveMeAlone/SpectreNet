@@ -10,6 +10,8 @@ _CLASSIC_HELP = f"""\
   [bold {WHITE}]masscan[/] [dim]<any args>[/]                 [cyan]masscan 10.0.0.0/24 -p 1-1000 --rate 5000[/]
   [bold {WHITE}]scan[/] [dim]<profile> <target>[/]            [cyan]scan quick 10.0.0.1[/]
     Profiles: quick  full  stealth  web  udp  vuln  os
+  [bold {WHITE}]shodan[/] [dim]<ip>[/]                        [cyan]shodan 10.0.0.1[/]
+  [bold {WHITE}]subfinder[/] [dim]<domain>[/]                 [cyan]subfinder example.com[/]
 
 [bold {CYAN}]── WEB ───────────────────────────────────────────────────────────────────[/]
   [bold {WHITE}]nikto[/] [dim]<args>[/]                       [cyan]nikto -h http://10.0.0.1[/]
@@ -39,6 +41,7 @@ _CLASSIC_HELP = f"""\
   [bold {WHITE}]scope add[/] [dim]<cidr>[/]                   [cyan]scope add 10.0.0.0/24[/]
   [bold {WHITE}]scope strict[/]                         Block out-of-scope targets
   [bold {WHITE}]report[/]                               Generate Markdown pentest report
+  [bold {WHITE}]report html[/]                          Generate self-contained HTML report
 
 [bold {CYAN}]── SHELL & AI ────────────────────────────────────────────────────────────[/]
   [bold {WHITE}]![/][dim]<command>[/]                          Run any shell command: [cyan]!ls -la /tmp[/]
@@ -49,10 +52,16 @@ _CLASSIC_HELP = f"""\
   [bold {WHITE}]help[/] [dim]<tool>[/]                         [cyan]help nmap[/]  [cyan]help sqlmap[/]  [cyan]help hydra[/]  [cyan]help msfconsole[/]
     Available: nmap  masscan  sqlmap  msfvenom  nikto  nuclei  gobuster  hydra
                enum4linux  whatweb  searchsploit  crackmapexec  msfconsole
+               shodan  subfinder
 
 [bold {CYAN}]── SESSION & WORKSPACE ───────────────────────────────────────────────────[/]
   [bold {WHITE}]sessions[/]                             List active MSF sessions
   [bold {WHITE}]session[/] [dim]<id>[/]                        Interact with session
+  [bold {WHITE}]postex sessions[/]                      List registered post-ex sessions
+  [bold {WHITE}]postex register[/] [dim]<host> [platform] [user][/]   Register a shell session
+  [bold {WHITE}]postex enum[/] [dim]<id>[/]                    Print auto-enum commands for session
+  [bold {WHITE}]postex pivot[/] [dim]<id>[/]                   Suggest pivot routes from session
+  [bold {WHITE}]postex loot[/] [dim]<id> <cmd output>[/]       Extract creds/hashes from output
   [bold {WHITE}]note[/] [dim]<text>[/]                         Add a note to current workspace
   [bold {WHITE}]workspace[/]                            Show workspace status
   [bold {WHITE}]workspace save[/] / [bold {WHITE}]load[/] / [bold {WHITE}]new[/]       Persist session across runs
@@ -61,6 +70,7 @@ _CLASSIC_HELP = f"""\
   [bold {WHITE}]↑ / ↓[/]                                Command history navigation
   [bold {WHITE}]F1[/]  [dim]/ help[/]                         This screen
   [bold {WHITE}]F2[/]                                   Toggle host/findings panel
+  [bold {WHITE}]F3[/]                                   Toggle network map
   [bold {WHITE}]Ctrl+L[/]  [dim]/ clear[/]                    Clear output feed
   [bold {WHITE}]tools[/]                                Show registered tool status
   [bold {WHITE}]quit[/]  [dim]/ exit[/]                        Exit SpectreNet
@@ -78,18 +88,25 @@ _AI_HELP = f"""\
 
 [bold {CYAN}]── TOOLS (direct, same as classic) ──────────────────────────────────────[/]
   [bold {WHITE}]nmap  masscan  nikto  nuclei  gobuster  sqlmap  msfvenom  hydra[/]
-  [bold {WHITE}]enum4linux  whatweb  searchsploit  crackmapexec[/]
+  [bold {WHITE}]enum4linux  whatweb  searchsploit  crackmapexec  shodan  subfinder[/]
   [bold {WHITE}]scan[/] [dim]<profile> <target>[/]  quick  full  stealth  web  udp  vuln  os
   [bold {WHITE}]![/][dim]<command>[/]               Shell passthrough: [cyan]!ls /tmp[/]
 
 [bold {CYAN}]── LOOT & SCOPE ──────────────────────────────────────────────────────────[/]
   [bold {WHITE}]loot[/]                    Show all loot    [bold {WHITE}]loot add[/] [dim]<type> <text>[/]
   [bold {WHITE}]scope[/]                   Show scope       [bold {WHITE}]scope add[/] [dim]<cidr>[/]
-  [bold {WHITE}]report[/]                  Generate Markdown pentest report
+  [bold {WHITE}]report[/]                  Generate Markdown report
+  [bold {WHITE}]report html[/]             Generate self-contained HTML report
+
+[bold {CYAN}]── POST-EXPLOITATION ─────────────────────────────────────────────────────[/]
+  [bold {WHITE}]postex sessions[/]         List registered sessions
+  [bold {WHITE}]postex register[/] [dim]<host>[/]   Register a new session
+  [bold {WHITE}]postex enum[/] [dim]<id>[/]         Print auto-enum commands
+  [bold {WHITE}]postex pivot[/] [dim]<id>[/]        Suggest pivot routes
 
 [bold {CYAN}]── CHEAT SHEETS ──────────────────────────────────────────────────────────[/]
   [bold {WHITE}]help[/] [dim]<tool>[/]               [cyan]help nmap[/]  [cyan]help sqlmap[/]  [cyan]help msfconsole[/]
-    Also: enum4linux  whatweb  searchsploit  crackmapexec
+    Also: enum4linux  whatweb  searchsploit  crackmapexec  shodan  subfinder
 
 [bold {CYAN}]── WORKSPACE & NOTES ─────────────────────────────────────────────────────[/]
   [bold {WHITE}]note[/] [dim]<text>[/]               Add a note to current workspace

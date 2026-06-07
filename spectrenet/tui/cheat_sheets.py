@@ -410,6 +410,57 @@ CHEATSHEETS["crackmapexec"] = f"""\
   [+] = valid credentials    Pwn3d! = admin confirmed
 """
 
+CHEATSHEETS["shodan"] = f"""\
+[bold {CYAN}]── shodan ────────────────────────────────────────────────────────────────[/]
+[bold {WHITE}]CORE (requires shodan CLI + API key)[/]
+  shodan host <ip>              Detailed host info: ports, vulns, banners
+  shodan search <query>         Search Shodan index
+
+[bold {WHITE}]KEY OUTPUT FIELDS[/]
+  ip, country, org, os, ports (list), hostnames, vulnerabilities (CVEs)
+
+[bold {WHITE}]SETUP[/]
+  shodan init <API_KEY>         Authenticate CLI with your API key
+  shodan myip                   Your public IP (useful baseline)
+
+[bold {WHITE}]SPECTRENET INTEGRATION[/]
+  shodan 10.0.0.1               SpectreNet wrapper: runs shodan host, parses output
+  shodan search apache           Runs shodan search with field output
+
+[bold {WHITE}]EXAMPLES[/]
+  [cyan]shodan 10.0.0.1[/]
+  [cyan]shodan 10.0.0.1 search[/]
+  [cyan]shodan init YOUR_API_KEY[/]
+"""
+
+CHEATSHEETS["subfinder"] = f"""\
+[bold {CYAN}]── subfinder ─────────────────────────────────────────────────────────────[/]
+[bold {WHITE}]CORE (passive subdomain enumeration)[/]
+  subfinder -d <domain>                  Find subdomains for domain
+  subfinder -d <domain> -silent          Silent mode (only output subdomains)
+
+[bold {WHITE}]KEY FLAGS[/]
+  -d <domain>        Target domain
+  -o out.txt         Output to file
+  -json              JSON output
+  -silent            Suppress banners (SpectreNet default)
+  -all               Use all sources (slower but more thorough)
+  -t 30              Threads (default 10)
+  -timeout 30        Per-source timeout (seconds)
+
+[bold {WHITE}]DATA SOURCES[/]
+  Passive: CRT.sh, Chaos, Shodan, VirusTotal, Censys, and 40+ more
+  Requires API keys for some sources (configure in ~/.config/subfinder/)
+
+[bold {WHITE}]SPECTRENET INTEGRATION[/]
+  subfinder example.com        SpectreNet wrapper: parses subdomains, deduplicates
+
+[bold {WHITE}]EXAMPLES[/]
+  [cyan]subfinder example.com[/]
+  [cyan]subfinder example.com -silent -o subs.txt[/]
+  [cyan]subfinder example.com -all -timeout 60[/]
+"""
+
 CHEATSHEETS["msfconsole"] = f"""\
 [bold {CYAN}]── msfconsole ────────────────────────────────────────────────────────────[/]
 [bold {WHITE}]ENTER MSF CONSOLE[/]

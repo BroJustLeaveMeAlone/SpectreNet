@@ -1,4 +1,5 @@
 import argparse
+import sys
 from pathlib import Path
 from spectrenet.config import load_config
 from spectrenet.logging_setup import setup_logging
@@ -7,17 +8,22 @@ from spectrenet.engines.recon import ReconEngine
 from spectrenet.tui.app import SpectreNetApp
 
 
-def main() -> None:
+def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="spectrenet",
         description="SpectreNet — Always one step ahead",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=(
-            "Without flags, SpectreNet shows the interactive mode selector on startup.\n"
-            "Use --model to skip the selector for scripting or quick re-launch."
+            "Subcommands:\n"
+            "  spectrenet            Launch interactive TUI\n"
+            "  spectrenet server     Start the team collaboration server\n"
+            "\n"
+            "Use --model to skip the startup selector for scripting or quick re-launch."
         ),
     )
-    parser.add_argument("--config", default="config.yaml", metavar="FILE")
+    parser.add_argument("--config",   default="config.yaml", metavar="FILE")
+    parser.add_argument("--operator", default=None, metavar="NAME",
+                        help="Operator name (overrides config operator_name)")
     parser.add_argument(
         "--model", choices=["ollama", "openai", "none"], default=None,
         metavar="BACKEND",
@@ -30,9 +36,37 @@ def main() -> None:
     parser.add_argument("--msf-host",     default="127.0.0.1")
     parser.add_argument("--msf-port",     type=int, default=55553)
     parser.add_argument("--msf-password", default="msf")
-    args = parser.parse_args()
+    parser.add_argument("--db",           default=None, metavar="URL",
+                        help="PostgreSQL DSN (postgresql://user:pass@host/db) — overrides SQLite")
+
+    sub = parser.add_subparsers(dest="subcommand")
+    srv = sub.add_parser("server", help="Start the team collaboration server")
+    srv.add_argument("--host", default="0.0.0.0", help="Bind host (default: 0.0.0.0)")
+    srv.add_argument("--port", type=int, default=8888, help="Bind port (default: 8888)")
+    return parser
+
+
+def main() -> None:
+    parser = _build_parser()
+    args   = parser.parse_args()
+
+    # ── Team server subcommand ─────────────────────────────────────────────────
+    if args.subcommand == "server":
+        try:
+            from spectrenet.server.app import serve
+            print(f"Starting SpectreNet team server on {args.host}:{args.port}")
+            serve(host=args.host, port=args.port)
+        except ImportError:
+            print("fastapi and uvicorn are required: pip install fastapi uvicorn")
+            sys.exit(1)
+        return
 
     cfg = load_config(Path(args.config))
+    if args.operator:
+        cfg.operator_name = args.operator
+    if args.db:
+        cfg.storage_backend = "postgresql"
+        cfg.db_path = args.db
     log = setup_logging(cfg.log_level)
     log.info("Starting SpectreNet (operator=%s)", cfg.operator_name)
 

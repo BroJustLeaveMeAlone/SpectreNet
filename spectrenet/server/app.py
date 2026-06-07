@@ -2,18 +2,23 @@
 SpectreNet Team Server — FastAPI backend for multi-operator collaboration.
 
 Endpoints:
-  GET  /                       Web dashboard (HTML)
-  GET  /api/sessions           List active sessions
-  POST /api/sessions           Register a new session
-  DELETE /api/sessions/{id}    Kill a session
-  GET  /api/loot               All captured loot
-  POST /api/loot               Add a loot entry
-  GET  /api/notes              All notes
-  POST /api/notes              Add a note
-  GET  /api/targets            All scope targets
-  POST /api/targets            Add a target
-  GET  /api/events             SSE stream of real-time events
-  POST /api/events/broadcast   Broadcast a message to all listeners
+  GET  /                           Web dashboard (HTML)
+  GET  /api/sessions               List active sessions
+  POST /api/sessions               Register a new session
+  DELETE /api/sessions/{id}        Kill a session
+  GET  /api/loot                   All captured loot
+  POST /api/loot                   Add a loot entry
+  GET  /api/notes                  All notes
+  POST /api/notes                  Add a note
+  GET  /api/targets                All scope targets
+  POST /api/targets                Add a target
+  GET  /api/operators              List connected operators
+  POST /api/operators/join         Operator joins the session
+  POST /api/operators/leave        Operator leaves the session
+  POST /api/operators/claim        Claim a target (conflict detection)
+  DELETE /api/operators/claim/{t}  Release a claimed target
+  GET  /api/events                 SSE stream of real-time events
+  POST /api/events/broadcast       Broadcast a message to all listeners
 """
 from __future__ import annotations
 
@@ -33,12 +38,17 @@ app = FastAPI(title="SpectreNet Team Server", version="1.0.0")
 
 # ── Shared state ──────────────────────────────────────────────────────────────
 
-_sessions: dict[int, dict] = {}
-_loot:     list[dict]      = []
-_notes:    list[dict]      = []
-_targets:  list[str]       = []
-_events:   list[asyncio.Queue] = []
-_next_session_id = 1
+_sessions:        dict[int, dict]   = {}
+_loot:            list[dict]        = []
+_notes:           list[dict]        = []
+_targets:         list[str]         = []
+_events:          list[asyncio.Queue] = []
+_next_session_id: int               = 1
+
+# Operator registry: name → {name, joined_at, active_target}
+_operators:       dict[str, dict]   = {}
+# Target claims:  target_ip → operator_name
+_claims:          dict[str, str]    = {}
 
 
 def _now() -> str:
@@ -81,6 +91,73 @@ class TargetIn(BaseModel):
 class BroadcastIn(BaseModel):
     message:  str
     operator: str = "operator"
+
+
+class OperatorIn(BaseModel):
+    name: str
+
+
+class ClaimIn(BaseModel):
+    operator: str
+    target:   str
+
+
+# ── Operators & conflict detection ────────────────────────────────────────────
+
+@app.get("/api/operators")
+def list_operators() -> dict:
+    return {"operators": list(_operators.values()), "claims": _claims}
+
+
+@app.post("/api/operators/join", status_code=201)
+def operator_join(body: OperatorIn) -> dict:
+    entry = {"name": body.name, "joined_at": _now(), "active_target": None}
+    _operators[body.name] = entry
+    _broadcast("operator_joined", {"name": body.name})
+    return entry
+
+
+@app.post("/api/operators/leave")
+def operator_leave(body: OperatorIn) -> dict:
+    _operators.pop(body.name, None)
+    # Release any claims held by this operator
+    released = [t for t, op in list(_claims.items()) if op == body.name]
+    for t in released:
+        del _claims[t]
+    _broadcast("operator_left", {"name": body.name, "released": released})
+    return {"status": "left", "released": released}
+
+
+@app.post("/api/operators/claim")
+def claim_target(body: ClaimIn) -> dict:
+    existing = _claims.get(body.target)
+    if existing and existing != body.operator:
+        # Conflict — warn but allow
+        _broadcast("target_conflict", {
+            "target":           body.target,
+            "claimed_by":       existing,
+            "also_claimed_by":  body.operator,
+        })
+        return {
+            "status":    "conflict",
+            "target":    body.target,
+            "claimed_by": existing,
+            "warning":   f"operator '{existing}' is already working {body.target}",
+        }
+    _claims[body.target] = body.operator
+    if body.operator in _operators:
+        _operators[body.operator]["active_target"] = body.target
+    _broadcast("target_claimed", {"target": body.target, "operator": body.operator})
+    return {"status": "claimed", "target": body.target, "operator": body.operator}
+
+
+@app.delete("/api/operators/claim/{target}")
+def release_target(target: str, operator: str = "operator") -> dict:
+    _claims.pop(target, None)
+    if operator in _operators:
+        _operators[operator]["active_target"] = None
+    _broadcast("target_released", {"target": target, "operator": operator})
+    return {"status": "released", "target": target}
 
 
 # ── Sessions ──────────────────────────────────────────────────────────────────

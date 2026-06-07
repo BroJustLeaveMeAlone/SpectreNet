@@ -9,11 +9,13 @@ from textual.containers import Horizontal
 from spectrenet import APP_NAME, __version__
 from spectrenet.theme import CYAN, CYAN_DIM, NAVY, NAVY_DEEP, NAVY_LIGHT, GREY, WHITE, SUCCESS, WARNING
 from spectrenet.tui.findings_panel import FindingsPanel
+from spectrenet.tui.network_map import NetworkMapWidget
 from spectrenet.tui.cheat_sheets import CHEATSHEETS, SCAN_PROFILES, parse_nmap_text, suggest_followups
 from spectrenet.workspace import Workspace
 from spectrenet.loot import LootVault
 from spectrenet.scope import ScopeEnforcer
 from spectrenet.knowledge.cve_enricher import CVEEnricher
+from spectrenet.engines.post_ex import PostExEngine
 
 log = logging.getLogger("spectrenet")
 
@@ -24,11 +26,13 @@ _DIRECT_TOOLS = {
 
 _COMPLETIONS = sorted(_DIRECT_TOOLS | {
     "scan", "msf", "loot", "scope", "report", "note", "workspace",
-    "sessions", "session", "explain", "ai", "tools", "help",
+    "sessions", "session", "postex", "explain", "ai", "tools", "help",
     "clear", "quit", "exit",
     "scan quick", "scan full", "scan stealth", "scan web", "scan udp", "scan vuln", "scan os",
     "loot add", "loot clear", "scope add", "scope strict",
+    "report html",
     "workspace save", "workspace load", "workspace new",
+    "postex sessions", "postex enum", "postex pivot", "postex loot",
     "help nmap", "help masscan", "help sqlmap", "help msfvenom", "help nikto",
     "help nuclei", "help gobuster", "help hydra", "help msfconsole",
     "help enum4linux", "help whatweb", "help searchsploit", "help crackmapexec",
@@ -52,6 +56,7 @@ class ClassicScreen(Screen):
     BINDINGS = [
         ("f1",     "show_help",        "Help"),
         ("f2",     "toggle_findings",  "Findings"),
+        ("f3",     "toggle_netmap",    "Network Map"),
         ("ctrl+l", "clear_feed",       "Clear"),
     ]
 
@@ -131,6 +136,7 @@ class ClassicScreen(Screen):
             getattr(config, "scope_strict", False),
         )
         self._enricher   = CVEEnricher()
+        self._post_ex    = PostExEngine(loot=self._loot)
 
     # ------------------------------------------------------------------
     # Layout
@@ -143,6 +149,9 @@ class ClassicScreen(Screen):
             yield self.feed
             self.findings_panel = FindingsPanel(id="findings")
             yield self.findings_panel
+            self.network_map = NetworkMapWidget(id="netmap")
+            self.network_map.display = False
+            yield self.network_map
         with Horizontal(id="input-bar"):
             yield Static("»", id="prompt-label")
             yield Input(
@@ -157,7 +166,7 @@ class ClassicScreen(Screen):
         if self._msf_bridge:
             msf_s = f"  [{SUCCESS}]MSF ✓[/]" if self._msf_bridge.is_connected() else f"  [{GREY}]MSF ✗[/]"
             status += msf_s
-        status += f"  [{GREY}]F2 findings  F1 help[/]"
+        status += f"  [{GREY}]F2 findings  F3 netmap  F1 help[/]"
         self.query_one("#statusbar", Static).update(status)
         self.feed.write(f"[bold {CYAN}]SpectreNet[/] v{__version__} — Classic Mode")
         self.feed.write(
@@ -302,7 +311,15 @@ class ClassicScreen(Screen):
 
         # report export
         if verb == "report":
-            self._generate_report()
+            if rest and rest[0].lower() == "html":
+                self._generate_report_html()
+            else:
+                self._generate_report()
+            return
+
+        # post-exploitation engine
+        if verb == "postex":
+            self._handle_postex(rest)
             return
 
         # tools / wrappers
@@ -416,6 +433,7 @@ class ClassicScreen(Screen):
                 parsed = parse_nmap_text(output_text)
                 if parsed:
                     self.findings_panel.add_hosts(parsed)
+                    self.network_map.update_hosts(self.findings_panel._hosts)
                     for ip in parsed:
                         self._workspace.add_target(ip)
                     alerts = self._enricher.enrich(parsed)
@@ -594,7 +612,7 @@ class ClassicScreen(Screen):
     def _generate_report(self) -> None:
         from spectrenet.tui.report_exporter import generate_report
         from datetime import datetime
-        hosts = getattr(self.findings_panel, "_hosts", {})
+        hosts    = getattr(self.findings_panel, "_hosts", {})
         operator = getattr(self._config, "operator_name", "operator") if self._config else "operator"
         md   = generate_report(self._workspace, self._loot, hosts, operator)
         ts   = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -605,6 +623,92 @@ class ClassicScreen(Screen):
             f"[{CYAN}]◈ Report saved →[/] [bold]{path}[/]  "
             f"[{GREY}]({len(md.splitlines())} lines)[/]"
         )
+
+    def _generate_report_html(self) -> None:
+        from spectrenet.tui.report_exporter import generate_report_html
+        from datetime import datetime
+        hosts    = getattr(self.findings_panel, "_hosts", {})
+        operator = getattr(self._config, "operator_name", "operator") if self._config else "operator"
+        html = generate_report_html(self._workspace, self._loot, hosts, operator)
+        ts   = datetime.now().strftime("%Y%m%d_%H%M%S")
+        path = f"spectrenet_report_{ts}.html"
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(html)
+        self.feed.write(
+            f"[{CYAN}]◈ HTML report saved →[/] [bold]{path}[/]  "
+            f"[{GREY}]open in browser, Ctrl+P → Save as PDF[/]"
+        )
+
+    # ------------------------------------------------------------------
+    # Post-exploitation engine
+    # ------------------------------------------------------------------
+
+    def _handle_postex(self, rest: list[str]) -> None:
+        sub = rest[0].lower() if rest else ""
+
+        if not sub or sub == "sessions":
+            summary = self._post_ex.session_summary()
+            self.feed.write(f"\n[bold {CYAN}]◈ PostEx Sessions[/]")
+            self.feed.write(summary if summary != "no active sessions" else f"[{GREY}]no active sessions[/]")
+            self.feed.write(f"[{GREY}]  postex register <host>  |  postex enum <id>  |  postex pivot <id>[/]")
+            return
+
+        if sub == "register" and len(rest) >= 2:
+            host     = rest[1]
+            platform = rest[2] if len(rest) > 2 else "linux"
+            user     = rest[3] if len(rest) > 3 else ""
+            s = self._post_ex.register_session(host, platform, user)
+            self.feed.write(f"[{CYAN}]◈ Session [{s.id}] registered:[/] {host}  platform={platform}  user={user or '?'}")
+            return
+
+        if sub == "enum" and len(rest) >= 2:
+            try:
+                sid  = int(rest[1])
+                sess = self._post_ex.get_session(sid)
+                if not sess:
+                    self.feed.write(f"[red]Session {sid} not found.[/]")
+                    return
+                cmds = self._post_ex.auto_enum_commands(sess.platform)
+                self.feed.write(f"\n[bold {CYAN}]◈ Auto-enum commands for session [{sid}] ({sess.host})[/]")
+                for cmd in cmds:
+                    self.feed.write(f"  [{GREY}]▸[/] [dim]{cmd}[/]")
+            except ValueError:
+                self.feed.write(f"[red]Usage: postex enum <session_id>[/]")
+            return
+
+        if sub == "pivot" and len(rest) >= 2:
+            try:
+                sid   = int(rest[1])
+                sess  = self._post_ex.get_session(sid)
+                if not sess:
+                    self.feed.write(f"[red]Session {sid} not found.[/]")
+                    return
+                known_hosts = list(self.findings_panel._hosts.keys())
+                suggestions = self._post_ex.suggest_pivot(sess, known_hosts)
+                self.feed.write(f"\n[bold {CYAN}]◈ Pivot suggestions from session [{sid}] ({sess.host})[/]")
+                for s in suggestions:
+                    self.feed.write(f"  [{GREY}]▸[/] [dim]{s}[/]")
+            except ValueError:
+                self.feed.write(f"[red]Usage: postex pivot <session_id>[/]")
+            return
+
+        if sub == "loot" and len(rest) >= 3:
+            # postex loot <session_id> <shell_cmd> — run cmd locally + extract creds
+            try:
+                sid    = int(rest[1])
+                cmd    = " ".join(rest[2:])
+                output = self._post_ex.run_local(cmd)
+                self.feed.write(f"\n[bold {CYAN}]◈ PostEx:[/] {cmd}")
+                self.feed.write(output)
+                creds  = self._post_ex.extract_creds(output)
+                hashes = self._post_ex.extract_hashes(output)
+                if creds or hashes:
+                    self.feed.write(f"[{CYAN}]◈ Auto-loot:[/] {len(creds)} creds, {len(hashes)} hashes extracted")
+            except ValueError:
+                self.feed.write(f"[red]Usage: postex loot <session_id> <command>[/]")
+            return
+
+        self.feed.write(f"[{GREY}]postex sessions  |  postex register <host> [platform] [user]  |  postex enum <id>  |  postex pivot <id>[/]")
 
     # ------------------------------------------------------------------
     # Info helpers
@@ -660,3 +764,6 @@ class ClassicScreen(Screen):
 
     def action_toggle_findings(self) -> None:
         self.findings_panel.display = not self.findings_panel.display
+
+    def action_toggle_netmap(self) -> None:
+        self.network_map.display = not self.network_map.display
