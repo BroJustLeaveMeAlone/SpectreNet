@@ -34,8 +34,8 @@
 ---
 
 ![Python](https://img.shields.io/badge/Python-3.11%2B-00c8ff?style=flat-square&logo=python&logoColor=white&labelColor=050d1a)
-![Phase](https://img.shields.io/badge/Phase-1%20Complete-00c8ff?style=flat-square&labelColor=050d1a)
-![Tests](https://img.shields.io/badge/Tests-20%20passed-4dffa3?style=flat-square&labelColor=050d1a)
+![Phase](https://img.shields.io/badge/Phase-3%20In%20Progress-ffb84d?style=flat-square&labelColor=050d1a)
+![Tests](https://img.shields.io/badge/Tests-69%20passed-4dffa3?style=flat-square&labelColor=050d1a)
 ![License](https://img.shields.io/badge/License-MIT-00c8ff?style=flat-square&labelColor=050d1a)
 ![Status](https://img.shields.io/badge/Status-In%20Development-ffb84d?style=flat-square&labelColor=050d1a)
 
@@ -70,7 +70,7 @@ The AI is a force-multiplier — not a hard dependency. Every engine, wrapper, a
 │           Classic  │  AI Autonomous  │  AI Approval-Gated   │
 ├─────────────────────────────────────────────────────────────┤
 │                   AI Core  (optional)                        │
-│     Mission Planner  │  Step Reasoner  │  Report Writer      │
+│     Mission Planner  │  Step Reasoner  │  Goal Engine        │
 ├─────────────────────────────────────────────────────────────┤
 │                      Engine Layer                            │
 │      Recon  │  Web Vulns  │  Exploit  │  Post-Exploitation   │
@@ -93,16 +93,13 @@ Every tool wrapper normalizes output to a common JSON schema. Drop a file into `
 |---|---|
 | Core language | Python 3.11+ |
 | Terminal UI | Textual + Rich |
-| Desktop GUI | Tauri (Phase 3) |
-| Web dashboard | FastAPI — embedded, LAN-accessible (Phase 3) |
+| Desktop GUI | Tauri (Phase 4) |
+| Web dashboard | FastAPI — embedded, LAN-accessible (Phase 4) |
 | AI orchestration | Custom Python — direct prompt control |
 | Model backend | Ollama (local, default) — swappable to any OpenAI-compatible API |
 | MSF bridge | pymetasploit3 + msfrpc |
-| Recon tools | nmap, masscan, shodan-cli |
-| Web vulns | sqlmap, nuclei, nikto |
-| Network map | NetworkX |
-| Vector search | ChromaDB (embedded, zero-setup) |
-| Storage | SQLite (solo) / PostgreSQL (team) |
+| Recon tools | nmap, masscan |
+| Storage | SQLite (solo) / PostgreSQL (team, Phase 4) |
 | Packaging | PyInstaller / pipx |
 
 ---
@@ -111,9 +108,9 @@ Every tool wrapper normalizes output to a common JSON schema. Drop a file into `
 
 ```
 Phase 1 — Foundation          ██████████  COMPLETE  ✓
-Phase 2 — Core Attack Loop    ░░░░░░░░░░  Planned
-Phase 3 — Full Intelligence   ░░░░░░░░░░  Planned
-Phase 4 — Custom Model        ░░░░░░░░░░  Planned
+Phase 2 — Core Attack Loop    ██████████  COMPLETE  ✓
+Phase 3 — Goal-Directed AI    ████░░░░░░  In Progress
+Phase 4 — Full Platform       ░░░░░░░░░░  Planned
 ```
 
 ### Phase 1 — Foundation ✓
@@ -127,27 +124,32 @@ Phase 4 — Custom Model        ░░░░░░░░░░  Planned
 - [x] CVE knowledge base with service lookup
 - [x] TUI shell (Textual) + CLI entry point (`spectrenet` / `snet`)
 
-### Phase 2 — Core Attack Loop
-- Metasploit RPC bridge (pymetasploit3)
-- Native Python exploit module system
-- msfvenom payload generation wrapper
-- AI mission planner + step reasoner
-- Approval-gated execution pipeline (blocking Y/N/S prompt)
+### Phase 2 — Core Attack Loop ✓
+- [x] msfvenom payload generation wrapper (SHA-256 hash, normalized output)
+- [x] Metasploit RPC bridge (`MsfBridge`, injectable client, graceful fallback)
+- [x] Native Python exploit module system (autodiscovered from `engines/exploit_modules/`)
+- [x] Exploit engine (native modules + MSF dispatch, unified result type)
+- [x] AI mission planner — natural language → structured `MissionPlan` with risk tagging
+- [x] AI step reasoner — session state → next `PlanStep`, intrusive steps flagged automatically
+- [x] Approval-gated execution pipeline (blocking `Y` / `N` / `S` prompt per intrusive action)
+- [x] Session audit extended with full approval log
+- [x] TUI `mission` command + async approval gate wired end-to-end
+- [x] CLI `--model` flag (Ollama / classic mode switch)
 
-### Phase 3 — Full Intelligence
-- Web vulnerability engine (sqlmap, nuclei, nikto, Burp Suite)
-- Custom fuzzer + web crawler
-- Live network map (terminal + GUI rendering)
-- Post-exploitation engine (sessions, pivot, loot)
+### Phase 3 — Goal-Directed AI Loop *(in progress)*
+- [x] `MsfConsole` — pymetasploit3 RPC console wrapper with poll-based output
+- [x] `SessionInteractor` — meterpreter / shell session command dispatch
+- [ ] `GoalEngine` — async autonomous goal-directed loop (plan → execute → observe → repeat)
+- [ ] `GoalPanel` + `SessionPanel` — live TUI widgets for goal status and session interaction
+- [ ] TUI redesign — real-time styled activity feed + natural-language `ai>` input
+
+### Phase 4 — Full Platform
+- Web vulnerability engine (sqlmap, nuclei, nikto)
+- Live network map (terminal rendering)
 - AI report writer
-- Tauri desktop GUI
 - PostgreSQL + FastAPI team server + web dashboard
-
-### Phase 4 — Custom Model
-- Fine-tune on session logs from Phases 1–3
-- Security-domain LoRA on Llama 3.1 or equivalent
-- Register custom backend via model interface
-- Benchmark against Ollama baseline
+- Tauri desktop GUI
+- Fine-tuned security-domain model (LoRA on Llama 3.1)
 
 ---
 
@@ -169,11 +171,21 @@ spectrenet
 snet
 ```
 
+### Optional: Metasploit RPC (for MSF bridge)
+
+```bash
+# Start msfrpcd before launching SpectreNet
+msfrpcd -P msf -S false
+```
+
 ### Optional: Ollama (for AI mode)
 
 ```bash
 # Install Ollama — https://ollama.com
 ollama pull llama3.1:70b
+
+# Launch with AI mode enabled
+spectrenet --model ollama
 ```
 
 ---
@@ -184,12 +196,12 @@ Create `config.yaml` in the working directory to override defaults:
 
 ```yaml
 operator_name: alice           # shown in the audit log
-model_backend: ollama          # ollama | openai | anthropic
+model_backend: ollama          # ollama | none
 model_name: llama3.1:70b
 ollama_url: http://localhost:11434
-storage_backend: sqlite        # sqlite | postgres
+storage_backend: sqlite
 db_path: spectrenet.db
-server_port: 7777              # team web dashboard port
+server_port: 7777
 log_level: INFO
 ```
 
@@ -213,6 +225,31 @@ class ZmapWrapper(ToolWrapper):
 
     def run(self, target: str, **kwargs) -> dict:
         # invoke zmap, normalize output, return dict matching schema
+        ...
+```
+
+Autodiscovered on next startup. No config edits needed.
+
+---
+
+## Adding Native Exploit Modules
+
+Drop a Python file into `spectrenet/engines/exploit_modules/modules/` that subclasses `ExploitModule`:
+
+```python
+from spectrenet.engines.exploit_modules.base import ExploitModule, ExploitResult
+
+class MyExploit(ExploitModule):
+    name = "my/exploit"
+    description = "Example exploit module"
+    target_ports = [8080]
+
+    def check(self, host: str, port: int) -> bool:
+        # return True if target appears vulnerable
+        ...
+
+    def run(self, host: str, port: int, options: dict) -> ExploitResult:
+        # execute and return ExploitResult
         ...
 ```
 
@@ -248,6 +285,9 @@ Recon and passive enumeration never require approval.
 |---|---|
 | Architecture spec | [`docs/superpowers/specs/2026-06-06-spectrenet-architecture-design.md`](docs/superpowers/specs/2026-06-06-spectrenet-architecture-design.md) |
 | Phase 1 implementation plan | [`docs/superpowers/plans/2026-06-06-spectrenet-phase1-foundation.md`](docs/superpowers/plans/2026-06-06-spectrenet-phase1-foundation.md) |
+| Phase 2 implementation plan | [`docs/superpowers/plans/2026-06-06-spectrenet-phase2-core-attack-loop.md`](docs/superpowers/plans/2026-06-06-spectrenet-phase2-core-attack-loop.md) |
+| Phase 3 design spec | [`docs/superpowers/specs/2026-06-06-spectrenet-phase3-design.md`](docs/superpowers/specs/2026-06-06-spectrenet-phase3-design.md) |
+| Phase 3 implementation plan | [`docs/superpowers/plans/2026-06-06-spectrenet-phase3-goal-loop.md`](docs/superpowers/plans/2026-06-06-spectrenet-phase3-goal-loop.md) |
 
 ---
 
