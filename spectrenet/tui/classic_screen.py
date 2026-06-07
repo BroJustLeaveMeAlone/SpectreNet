@@ -22,6 +22,7 @@ log = logging.getLogger("spectrenet")
 _DIRECT_TOOLS = {
     "nmap", "masscan", "sqlmap", "nikto", "nuclei", "msfvenom",
     "gobuster", "hydra", "enum4linux", "whatweb", "searchsploit", "crackmapexec",
+    "shodan", "subfinder",
 }
 
 _COMPLETIONS = sorted(_DIRECT_TOOLS | {
@@ -33,9 +34,11 @@ _COMPLETIONS = sorted(_DIRECT_TOOLS | {
     "report html",
     "workspace save", "workspace load", "workspace new",
     "postex sessions", "postex enum", "postex pivot", "postex loot",
+    "msf connect", "msf use", "msf run", "msf info", "msf sessions", "msf back",
     "help nmap", "help masscan", "help sqlmap", "help msfvenom", "help nikto",
     "help nuclei", "help gobuster", "help hydra", "help msfconsole",
     "help enum4linux", "help whatweb", "help searchsploit", "help crackmapexec",
+    "help shodan", "help subfinder",
 })
 
 
@@ -275,6 +278,8 @@ class ClassicScreen(Screen):
         if verb == "msf":
             if not rest:
                 self._enter_msf_mode()
+            elif rest[0].lower() == "connect":
+                self._msf_connect(rest[1:])
             else:
                 self.run_worker(self._run_msf_command(" ".join(rest)), exclusive=False)
             return
@@ -391,6 +396,41 @@ class ClassicScreen(Screen):
         )
         self.feed.write(f"[{GREY}]  help nmap   — SpectreNet tool cheat sheets still work outside this mode.[/]")
 
+    def _msf_connect(self, args: list[str]) -> None:
+        if self._msf_bridge is None:
+            from spectrenet.msf.bridge import MsfBridge
+            self._msf_bridge = MsfBridge()
+        if len(args) > 0:
+            self._msf_bridge.host = args[0]
+        if len(args) > 1:
+            try:
+                self._msf_bridge.port = int(args[1])
+            except ValueError:
+                self.feed.write(f"[red]Invalid port: {args[1]}[/]")
+                return
+        if len(args) > 2:
+            self._msf_bridge.password = args[2]
+        self.feed.write(
+            f"[{GREY}]Connecting to msfrpcd at "
+            f"{self._msf_bridge.host}:{self._msf_bridge.port}…[/]"
+        )
+        self.run_worker(self._do_msf_connect(), exclusive=False)
+
+    async def _do_msf_connect(self) -> None:
+        loop = asyncio.get_event_loop()
+        ok = await loop.run_in_executor(None, self._msf_bridge.connect)
+        if ok:
+            self.feed.write(
+                f"[{SUCCESS}]◈ MSF connected ✓[/] — "
+                f"type [bold {CYAN}]msf[/] to enter console mode or "
+                f"[bold {CYAN}]sessions[/] to list active sessions."
+            )
+        else:
+            self.feed.write(
+                f"[red]MSF connection failed.[/]\n"
+                f"[{GREY}]Is msfrpcd running? Start with:  msfrpcd -P msf -S[/]"
+            )
+
     # ------------------------------------------------------------------
     # Tool runner
     # ------------------------------------------------------------------
@@ -497,10 +537,15 @@ class ClassicScreen(Screen):
 
     async def _run_msf_command(self, command: str) -> None:
         if self._msf_bridge is None or not self._msf_bridge.is_connected():
-            self.feed.write(f"[red]MSF bridge not connected.[/] Start msfrpcd first.")
+            self.feed.write(
+                f"[red]MSF bridge not connected.[/] "
+                f"Start msfrpcd or type [bold {CYAN}]msf connect[/] to retry."
+            )
             return
-        label = "msf>" if self._msf_mode else f"msf {command}"
-        self.feed.write(f"\n[bold {CYAN}]▸ {label}[/]" if not self._msf_mode else "")
+        if self._msf_mode:
+            self.feed.write(f"[{GREY}]msf> {command}[/]")
+        else:
+            self.feed.write(f"\n[bold {CYAN}]▸ msf {command}[/]")
         try:
             con = self._msf_bridge.get_console()
             loop = asyncio.get_event_loop()

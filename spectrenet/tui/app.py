@@ -31,6 +31,7 @@ class SpectreNetApp(App):
             registry=self.registry,
             recon=self.recon,
             msf_bridge=self.msf_bridge,
+            config=self.config,
         ))
 
     def enter_ai_mode(self, model) -> None:

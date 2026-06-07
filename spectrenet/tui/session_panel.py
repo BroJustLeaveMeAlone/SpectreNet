@@ -83,8 +83,13 @@ class SessionPanel(Vertical):
 
     def _run_command(self, cmd: str) -> None:
         self._log.write(f"[dim]> {cmd}[/]")
+        self.run_worker(self._exec_command(cmd), exclusive=False)
+
+    async def _exec_command(self, cmd: str) -> None:
+        import asyncio
+        loop = asyncio.get_event_loop()
         try:
-            output = self._interactor.run(cmd)
+            output = await loop.run_in_executor(None, lambda: self._interactor.run(cmd))
             self._log.write(output or "[dim](no output)[/]")
         except Exception as e:
             self._log.write(f"[red]error: {e}[/]")
