@@ -4,6 +4,7 @@ import logging
 from textual.app import ComposeResult
 from textual.screen import Screen
 from textual.widgets import Static, Input, RichLog, Button
+from textual.suggester import SuggestFromList
 from textual.containers import Horizontal
 from spectrenet import APP_NAME, __version__
 from spectrenet.theme import CYAN, CYAN_DIM, NAVY, NAVY_DEEP, NAVY_LIGHT, GREY, WHITE, SUCCESS, WARNING
@@ -16,7 +17,22 @@ from spectrenet.knowledge.cve_enricher import CVEEnricher
 
 log = logging.getLogger("spectrenet")
 
-_DIRECT_TOOLS = {"nmap", "masscan", "sqlmap", "nikto", "nuclei", "msfvenom", "gobuster", "hydra", "enum4linux", "whatweb", "searchsploit"}
+_DIRECT_TOOLS = {
+    "nmap", "masscan", "sqlmap", "nikto", "nuclei", "msfvenom",
+    "gobuster", "hydra", "enum4linux", "whatweb", "searchsploit", "crackmapexec",
+}
+
+_COMPLETIONS = sorted(_DIRECT_TOOLS | {
+    "scan", "msf", "loot", "scope", "report", "note", "workspace",
+    "sessions", "session", "explain", "ai", "tools", "help",
+    "clear", "quit", "exit",
+    "scan quick", "scan full", "scan stealth", "scan web", "scan udp", "scan vuln", "scan os",
+    "loot add", "loot clear", "scope add", "scope strict",
+    "workspace save", "workspace load", "workspace new",
+    "help nmap", "help masscan", "help sqlmap", "help msfvenom", "help nikto",
+    "help nuclei", "help gobuster", "help hydra", "help msfconsole",
+    "help enum4linux", "help whatweb", "help searchsploit", "help crackmapexec",
+})
 
 
 def _tool_status(registry) -> str:
@@ -132,6 +148,7 @@ class ClassicScreen(Screen):
             yield Input(
                 placeholder="nmap 10.0.0.1 -sV  |  scan quick 10.0.0.1  |  help nmap  |  !cmd",
                 id="cmd-input",
+                suggester=SuggestFromList(_COMPLETIONS, case_sensitive=False),
             )
             yield Button("CLR", id="clear-btn")
 

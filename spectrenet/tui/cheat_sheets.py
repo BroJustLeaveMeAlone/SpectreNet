@@ -311,6 +311,105 @@ CHEATSHEETS: dict[str, str] = {
 """,
 }
 
+CHEATSHEETS["enum4linux"] = f"""\
+[bold {CYAN}]── enum4linux ────────────────────────────────────────────────────────────[/]
+[bold {WHITE}]CORE[/]
+  enum4linux [options] <target>
+
+[bold {WHITE}]KEY FLAGS[/]
+  -a   All checks (default, recommended)
+  -U   Get userlist            -G   Get group list
+  -S   Get sharelist           -P   Get password policy
+  -r   Enumerate via RID cycling  -o  Get OS info
+  -n   NetBIOS info            -w  Get workgroup/domain
+
+[bold {WHITE}]OUTPUT FIELDS[/]
+  users, groups, shares, os (OS fingerprint)
+
+[bold {WHITE}]EXAMPLES[/]
+  [cyan]enum4linux -a 10.0.0.1[/]
+  [cyan]enum4linux -U -G 10.0.0.1[/]
+  [cyan]enum4linux -r -d 10.0.0.1[/]
+
+[bold {WHITE}]FOLLOW-UPS[/]
+  crackmapexec smb <ip> -u <user> -p <pass>   Spray found users
+  smbclient //<ip>/<share> -N                  Access share anonymously
+"""
+
+CHEATSHEETS["whatweb"] = f"""\
+[bold {CYAN}]── whatweb ───────────────────────────────────────────────────────────────[/]
+[bold {WHITE}]CORE[/]
+  whatweb [options] <url>
+
+[bold {WHITE}]AGGRESSION LEVELS[/]
+  -a 1   Passive (default)    -a 3  Aggressive (more requests)
+
+[bold {WHITE}]OUTPUT[/]
+  --color=never     No ANSI (for SpectreNet parsing)
+  --log-json=f      JSON output    -v  Verbose plugin output
+
+[bold {WHITE}]WHAT IT DETECTS[/]
+  Web server, CMS, frameworks, jQuery, Apache/Nginx/PHP versions,
+  login pages, cookies, security headers
+
+[bold {WHITE}]EXAMPLES[/]
+  [cyan]whatweb http://10.0.0.1[/]
+  [cyan]whatweb -a 3 http://10.0.0.1[/]
+  [cyan]whatweb --color=never -v http://10.0.0.1[/]
+"""
+
+CHEATSHEETS["searchsploit"] = f"""\
+[bold {CYAN}]── searchsploit ──────────────────────────────────────────────────────────[/]
+[bold {WHITE}]CORE[/]
+  searchsploit <keyword> [keyword ...]
+
+[bold {WHITE}]KEY FLAGS[/]
+  --json              Machine-readable JSON output
+  -t                  Search titles only   -e  Exact match
+  -m <edb-id>         Mirror exploit to current directory
+  -x <edb-id>         Examine/cat the exploit
+  --update            Update exploit-db local copy
+
+[bold {WHITE}]OUTPUT FIELDS[/]
+  title, edb_id, path, type (remote/local/webapps), platform, date
+
+[bold {WHITE}]EXAMPLES[/]
+  [cyan]searchsploit apache 2.4.49[/]
+  [cyan]searchsploit --json vsftpd 2.3.4[/]
+  [cyan]searchsploit -m 50383[/]          Mirror exploit to current dir
+  [cyan]searchsploit -x 50383[/]          Examine exploit code
+"""
+
+CHEATSHEETS["crackmapexec"] = f"""\
+[bold {CYAN}]── crackmapexec / netexec ────────────────────────────────────────────────[/]
+[bold {WHITE}]SYNTAX[/]
+  crackmapexec <proto> <target> [options]
+  netexec / nxc <proto> <target> [options]       (newer alias)
+
+[bold {WHITE}]PROTOCOLS[/]
+  smb   ssh   winrm   rdp   ldap   mssql   ftp
+
+[bold {WHITE}]CREDENTIAL OPTIONS[/]
+  -u user / -U users.txt     -p pass / -P passes.txt
+  -H HASH                    Pass-the-Hash (NTLM)
+  --no-bruteforce            Test each user:pass pair (no spray)
+
+[bold {WHITE}]SMB ACTIONS[/]
+  --shares      Enumerate shares     --users   Enumerate users
+  --sam         Dump SAM hashes      --ntds    Dump NTDS.dit
+  -x <cmd>      Execute command      -X <cmd>  PowerShell
+
+[bold {WHITE}]EXAMPLES[/]
+  [cyan]crackmapexec smb 10.0.0.0/24[/]                     Network discovery
+  [cyan]crackmapexec smb 10.0.0.1 -u admin -p pass --shares[/]
+  [cyan]crackmapexec smb 10.0.0.1 -u users.txt -p rockyou.txt[/]
+  [cyan]crackmapexec smb 10.0.0.1 -u admin -H aad3b435...[/]  Pass-the-Hash
+  [cyan]crackmapexec ssh 10.0.0.1 -u root -p root -x 'id'[/]
+
+[bold {WHITE}]SIGNS OF SUCCESS[/]
+  [+] = valid credentials    Pwn3d! = admin confirmed
+"""
+
 CHEATSHEETS["msfconsole"] = f"""\
 [bold {CYAN}]── msfconsole ────────────────────────────────────────────────────────────[/]
 [bold {WHITE}]ENTER MSF CONSOLE[/]

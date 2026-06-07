@@ -16,12 +16,29 @@ _CLASSIC_HELP = f"""\
   [bold {WHITE}]nuclei[/] [dim]<args>[/]                      [cyan]nuclei -u http://10.0.0.1 -t cves/[/]
   [bold {WHITE}]gobuster[/] [dim]<args>[/]                    [cyan]gobuster dir -u http://10.0.0.1 -w common.txt[/]
   [bold {WHITE}]sqlmap[/] [dim]<args>[/]                      [cyan]sqlmap -u "http://10.0.0.1/page?id=1" --dbs[/]
+  [bold {WHITE}]whatweb[/] [dim]<url>[/]                      [cyan]whatweb http://10.0.0.1[/]
+
+[bold {CYAN}]── SMB / AD ──────────────────────────────────────────────────────────────[/]
+  [bold {WHITE}]enum4linux[/] [dim]<ip>[/]                    [cyan]enum4linux 10.0.0.1[/]
+  [bold {WHITE}]crackmapexec[/] [dim]<proto> <ip> [opts][/]   [cyan]crackmapexec smb 10.0.0.1 -u admin -p pass[/]
+    Protocols: smb  ssh  winrm  rdp  ldap  mssql
 
 [bold {CYAN}]── EXPLOITATION ──────────────────────────────────────────────────────────[/]
   [bold {WHITE}]msf[/]                                  Enter interactive MSF console mode
   [bold {WHITE}]msf[/] [dim]<command>[/]                      [cyan]msf use exploit/windows/smb/ms17_010_eternalblue[/]
   [bold {WHITE}]msfvenom[/] [dim]<args>[/]                    [cyan]msfvenom -p windows/x64/shell_reverse_tcp ...[/]
   [bold {WHITE}]hydra[/] [dim]<args>[/]                       [cyan]hydra -l root -P rockyou.txt ssh://10.0.0.1[/]
+  [bold {WHITE}]searchsploit[/] [dim]<query>[/]               [cyan]searchsploit apache 2.4.49[/]
+
+[bold {CYAN}]── LOOT & SCOPE ──────────────────────────────────────────────────────────[/]
+  [bold {WHITE}]loot[/]                                 Show all captured loot
+  [bold {WHITE}]loot add[/] [dim]<type> <text>[/]             [cyan]loot add cred admin:password[/]
+    Types: cred  hash  file  secret
+  [bold {WHITE}]loot clear[/]                           Clear loot vault
+  [bold {WHITE}]scope[/]                                Show current scope
+  [bold {WHITE}]scope add[/] [dim]<cidr>[/]                   [cyan]scope add 10.0.0.0/24[/]
+  [bold {WHITE}]scope strict[/]                         Block out-of-scope targets
+  [bold {WHITE}]report[/]                               Generate Markdown pentest report
 
 [bold {CYAN}]── SHELL & AI ────────────────────────────────────────────────────────────[/]
   [bold {WHITE}]![/][dim]<command>[/]                          Run any shell command: [cyan]!ls -la /tmp[/]
@@ -31,6 +48,7 @@ _CLASSIC_HELP = f"""\
 [bold {CYAN}]── CHEAT SHEETS ──────────────────────────────────────────────────────────[/]
   [bold {WHITE}]help[/] [dim]<tool>[/]                         [cyan]help nmap[/]  [cyan]help sqlmap[/]  [cyan]help hydra[/]  [cyan]help msfconsole[/]
     Available: nmap  masscan  sqlmap  msfvenom  nikto  nuclei  gobuster  hydra
+               enum4linux  whatweb  searchsploit  crackmapexec  msfconsole
 
 [bold {CYAN}]── SESSION & WORKSPACE ───────────────────────────────────────────────────[/]
   [bold {WHITE}]sessions[/]                             List active MSF sessions
@@ -60,11 +78,18 @@ _AI_HELP = f"""\
 
 [bold {CYAN}]── TOOLS (direct, same as classic) ──────────────────────────────────────[/]
   [bold {WHITE}]nmap  masscan  nikto  nuclei  gobuster  sqlmap  msfvenom  hydra[/]
+  [bold {WHITE}]enum4linux  whatweb  searchsploit  crackmapexec[/]
   [bold {WHITE}]scan[/] [dim]<profile> <target>[/]  quick  full  stealth  web  udp  vuln  os
   [bold {WHITE}]![/][dim]<command>[/]               Shell passthrough: [cyan]!ls /tmp[/]
 
+[bold {CYAN}]── LOOT & SCOPE ──────────────────────────────────────────────────────────[/]
+  [bold {WHITE}]loot[/]                    Show all loot    [bold {WHITE}]loot add[/] [dim]<type> <text>[/]
+  [bold {WHITE}]scope[/]                   Show scope       [bold {WHITE}]scope add[/] [dim]<cidr>[/]
+  [bold {WHITE}]report[/]                  Generate Markdown pentest report
+
 [bold {CYAN}]── CHEAT SHEETS ──────────────────────────────────────────────────────────[/]
   [bold {WHITE}]help[/] [dim]<tool>[/]               [cyan]help nmap[/]  [cyan]help sqlmap[/]  [cyan]help msfconsole[/]
+    Also: enum4linux  whatweb  searchsploit  crackmapexec
 
 [bold {CYAN}]── WORKSPACE & NOTES ─────────────────────────────────────────────────────[/]
   [bold {WHITE}]note[/] [dim]<text>[/]               Add a note to current workspace

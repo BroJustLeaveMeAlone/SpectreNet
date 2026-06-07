@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SpectreNet</title>
+  <style>
+    :root {
+      --navy:      #0d1117;
+      --navy-light:#161b22;
+      --cyan:      #00d4ff;
+      --cyan-dim:  #006080;
+      --grey:      #8b949e;
+      --white:     #e6edf3;
+      --green:     #3fb950;
+      --yellow:    #d29922;
+      --red:       #f85149;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--navy);
+      color: var(--white);
+      font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+      font-size: 13px;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* Titlebar */
+    #titlebar {
+      background: var(--navy-light);
+      border-bottom: 1px solid var(--cyan-dim);
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      user-select: none;
+    }
+    #titlebar h1 { color: var(--cyan); font-size: 15px; letter-spacing: 1px; }
+    #server-status { font-size: 11px; color: var(--grey); display: flex; align-items: center; gap: 6px; }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--grey); display: inline-block; }
+    .dot.ok { background: var(--green); }
+    .dot.err { background: var(--red); }
+
+    /* Tab bar */
+    #tabs {
+      background: var(--navy-light);
+      border-bottom: 1px solid var(--cyan-dim);
+      display: flex;
+      padding: 0 16px;
+    }
+    .tab {
+      padding: 8px 16px;
+      cursor: pointer;
+      color: var(--grey);
+      border-bottom: 2px solid transparent;
+      font-size: 12px;
+      letter-spacing: 0.5px;
+      transition: color 0.15s;
+    }
+    .tab:hover  { color: var(--white); }
+    .tab.active { color: var(--cyan); border-bottom-color: var(--cyan); }
+
+    /* Panels */
+    .panel { display: none; flex: 1; overflow-y: auto; padding: 20px; }
+    .panel.active { display: block; }
+
+    .card {
+      background: var(--navy-light);
+      border: 1px solid var(--cyan-dim);
+      border-radius: 6px;
+      padding: 14px 16px;
+      margin-bottom: 16px;
+    }
+    .card h2 {
+      color: var(--cyan); font-size: 11px; letter-spacing: 1.5px;
+      text-transform: uppercase; margin-bottom: 10px;
+      border-bottom: 1px solid var(--cyan-dim); padding-bottom: 6px;
+    }
+
+    .badge {
+      display: inline-block; padding: 2px 7px; border-radius: 3px;
+      font-size: 10px; font-weight: bold; margin-right: 4px;
+    }
+    .badge-green  { background: rgba(63,185,80,.15);  color: var(--green);  border: 1px solid var(--green); }
+    .badge-red    { background: rgba(248,81,73,.15);  color: var(--red);    border: 1px solid var(--red); }
+    .badge-yellow { background: rgba(210,153,34,.15); color: var(--yellow); border: 1px solid var(--yellow); }
+    .badge-cyan   { background: rgba(0,212,255,.10);  color: var(--cyan);   border: 1px solid var(--cyan-dim); }
+
+    .row { display: flex; align-items: flex-start; gap: 8px; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,.05); }
+    .row:last-child { border-bottom: none; }
+    .ts { color: var(--grey); font-size: 10px; white-space: nowrap; }
+    .empty { color: var(--grey); font-style: italic; }
+
+    /* Stats bar */
+    #stats-bar { display: flex; gap: 32px; padding: 0 20px 16px; }
+    .stat .num { font-size: 30px; font-weight: bold; color: var(--cyan); }
+    .stat .lbl { font-size: 10px; color: var(--grey); text-transform: uppercase; letter-spacing: 1px; }
+
+    /* Input row */
+    .input-row { display: flex; gap: 8px; margin-top: 10px; }
+    .input-row input {
+      flex: 1; background: var(--navy); border: 1px solid var(--cyan-dim);
+      color: var(--white); padding: 6px 10px; border-radius: 4px;
+      font-family: inherit; font-size: 12px;
+    }
+    .input-row input:focus { outline: none; border-color: var(--cyan); }
+    .input-row button {
+      background: var(--cyan-dim); border: 1px solid var(--cyan); color: var(--cyan);
+      padding: 6px 14px; border-radius: 4px; cursor: pointer; font-family: inherit;
+    }
+    .input-row button:hover { background: var(--cyan); color: var(--navy); }
+
+    /* Event log */
+    #event-log { max-height: 300px; overflow-y: auto; }
+  </style>
+</head>
+<body>
+
+<div id="titlebar">
+  <h1>⬡ SpectreNet</h1>
+  <div id="server-status">
+    <span class="dot" id="srv-dot"></span>
+    <span id="srv-text">Checking server…</span>
+  </div>
+</div>
+
+<div id="tabs">
+  <div class="tab active" onclick="switchTab('overview')">Overview</div>
+  <div class="tab" onclick="switchTab('sessions')">Sessions</div>
+  <div class="tab" onclick="switchTab('loot')">Loot</div>
+  <div class="tab" onclick="switchTab('events')">Events</div>
+</div>
+
+<div id="panel-overview" class="panel active">
+  <div id="stats-bar">
+    <div class="stat"><div class="num" id="stat-sessions">—</div><div class="lbl">Sessions</div></div>
+    <div class="stat"><div class="num" id="stat-loot">—</div><div class="lbl">Loot</div></div>
+    <div class="stat"><div class="num" id="stat-notes">—</div><div class="lbl">Notes</div></div>
+    <div class="stat"><div class="num" id="stat-targets">—</div><div class="lbl">Targets</div></div>
+  </div>
+  <div class="card">
+    <h2>Broadcast</h2>
+    <div class="input-row">
+      <input id="bcast" type="text" placeholder="Send message to all operators…" />
+      <button onclick="broadcast()">Send</button>
+    </div>
+  </div>
+</div>
+
+<div id="panel-sessions" class="panel">
+  <div class="card">
+    <h2>Active Sessions</h2>
+    <div id="sessions-body"><span class="empty">No sessions</span></div>
+  </div>
+</div>
+
+<div id="panel-loot" class="panel">
+  <div class="card">
+    <h2>Loot Vault</h2>
+    <div id="loot-body"><span class="empty">No loot</span></div>
+  </div>
+</div>
+
+<div id="panel-events" class="panel">
+  <div class="card">
+    <h2>Event Log</h2>
+    <div id="event-log"></div>
+  </div>
+</div>
+
+<script type="module">
+  const { invoke } = window.__TAURI__.core;
+
+  // ── Tabs ───────────────────────────────────────────────────────────────────
+  window.switchTab = (name) => {
+    document.querySelectorAll('.tab').forEach((t, i) => {
+      const panels = ['overview', 'sessions', 'loot', 'events'];
+      t.classList.toggle('active', panels[i] === name);
+    });
+    document.querySelectorAll('.panel').forEach(p => {
+      p.classList.toggle('active', p.id === `panel-${name}`);
+    });
+  };
+
+  // ── Server ping ────────────────────────────────────────────────────────────
+  async function checkServer() {
+    const ok = await invoke('server_ping').catch(() => false);
+    document.getElementById('srv-dot').className  = `dot ${ok ? 'ok' : 'err'}`;
+    document.getElementById('srv-text').textContent = ok ? 'Server connected' : 'Server offline';
+    return ok;
+  }
+
+  // ── API helpers ────────────────────────────────────────────────────────────
+  async function apiGet(path) {
+    const raw = await invoke('api_get', { path });
+    return JSON.parse(raw);
+  }
+  async function apiPost(path, data) {
+    const raw = await invoke('api_post', { path, body: JSON.stringify(data) });
+    return JSON.parse(raw);
+  }
+
+  const ts = iso => iso ? iso.slice(0,16).replace('T',' ') : '';
+
+  // ── Load & render ──────────────────────────────────────────────────────────
+  async function refresh() {
+    const ok = await checkServer();
+    if (!ok) return;
+    const [s, l, n, t] = await Promise.all([
+      apiGet('/api/sessions'),
+      apiGet('/api/loot'),
+      apiGet('/api/notes'),
+      apiGet('/api/targets'),
+    ]);
+    document.getElementById('stat-sessions').textContent = (s.sessions||[]).length;
+    document.getElementById('stat-loot').textContent     = (l.loot||[]).length;
+    document.getElementById('stat-notes').textContent    = (n.notes||[]).length;
+    document.getElementById('stat-targets').textContent  = (t.targets||[]).length;
+
+    const sl = document.getElementById('sessions-body');
+    sl.innerHTML = s.sessions.length ? s.sessions.map(x => `
+      <div class="row">
+        <span class="badge badge-green">#${x.id}</span>
+        <div><strong style="color:var(--cyan)">${x.host}</strong> &nbsp; ${x.platform} &nbsp; ${x.user||'?'}
+          <div class="ts">${ts(x.opened)}</div></div>
+      </div>`).join('') : '<span class="empty">No sessions</span>';
+
+    const typeClass = t => ({ cred:'badge-red', hash:'badge-yellow', file:'badge-cyan', secret:'badge-yellow' }[t]||'badge-cyan');
+    const ll = document.getElementById('loot-body');
+    ll.innerHTML = l.loot.length ? l.loot.slice(-30).reverse().map(x => `
+      <div class="row">
+        <span class="badge ${typeClass(x.type)}">${x.type}</span>
+        <div style="overflow:hidden;flex:1">
+          <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block">${x.text}</span>
+          <div class="ts">${x.operator} · ${ts(x.t)}</div>
+        </div>
+      </div>`).join('') : '<span class="empty">No loot</span>';
+  }
+
+  // ── Broadcast ──────────────────────────────────────────────────────────────
+  window.broadcast = async () => {
+    const msg = document.getElementById('bcast').value.trim();
+    if (!msg) return;
+    await apiPost('/api/events/broadcast', { message: msg, operator: 'desktop' });
+    document.getElementById('bcast').value = '';
+  };
+  document.getElementById('bcast').addEventListener('keydown', e => { if (e.key === 'Enter') window.broadcast(); });
+
+  // ── SSE event log ──────────────────────────────────────────────────────────
+  function startSSE() {
+    const es = new EventSource('http://localhost:8888/api/events');
+    es.onmessage = e => {
+      const evt = JSON.parse(e.data);
+      if (evt.type === 'ping') return;
+      const log  = document.getElementById('event-log');
+      const div  = document.createElement('div');
+      div.className = 'row';
+      div.innerHTML = `<span class="ts">${ts(evt.t || new Date().toISOString())}</span>
+        <span class="badge badge-cyan">${evt.type}</span>
+        <span>${JSON.stringify(evt.data||{})}</span>`;
+      log.insertBefore(div, log.firstChild);
+      if (log.children.length > 200) log.removeChild(log.lastChild);
+      refresh();
+    };
+    es.onerror = () => { es.close(); setTimeout(startSSE, 3000); };
+  }
+
+  // ── Init ───────────────────────────────────────────────────────────────────
+  refresh();
+  startSSE();
+  setInterval(refresh, 10000);
+</script>
+</body>
+</html>

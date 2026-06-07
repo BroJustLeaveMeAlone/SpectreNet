@@ -1,0 +1,36 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "SpectreNet",
+  "version": "0.1.0",
+  "identifier": "net.spectrenet.app",
+  "build": {
+    "beforeDevCommand":   "",
+    "beforeBuildCommand": "",
+    "devUrl":   "http://localhost:1420",
+    "frontendDist": "../src"
+  },
+  "app": {
+    "windows": [
+      {
+        "title":            "SpectreNet",
+        "width":            1280,
+        "height":           800,
+        "minWidth":         900,
+        "minHeight":        600,
+        "resizable":        true,
+        "decorations":      true,
+        "transparent":      false,
+        "center":           true,
+        "fullscreen":       false
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; connect-src http://localhost:8888 http://localhost:* ws://localhost:*; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": []
+  }
+}

@@ -4,6 +4,7 @@ import logging
 from textual.app import ComposeResult
 from textual.screen import Screen
 from textual.widgets import Static, Input, RichLog, Button
+from textual.suggester import SuggestFromList
 from textual.containers import Horizontal
 from spectrenet import __version__
 from spectrenet.theme import CYAN, CYAN_DIM, NAVY, NAVY_DEEP, NAVY_LIGHT, GREY, WHITE, SUCCESS, WARNING, ERROR, RISK_HIGH
@@ -17,7 +18,20 @@ from spectrenet.knowledge.cve_enricher import CVEEnricher
 
 log = logging.getLogger("spectrenet")
 
-_DIRECT_TOOLS = {"nmap", "masscan", "sqlmap", "nikto", "nuclei", "msfvenom", "gobuster", "hydra", "enum4linux", "whatweb", "searchsploit"}
+_DIRECT_TOOLS = {
+    "nmap", "masscan", "sqlmap", "nikto", "nuclei", "msfvenom",
+    "gobuster", "hydra", "enum4linux", "whatweb", "searchsploit", "crackmapexec",
+}
+
+_COMPLETIONS = sorted(_DIRECT_TOOLS | {
+    "goal", "stop", "explain", "scan", "loot", "scope", "report",
+    "note", "workspace", "classic", "help", "clear", "quit",
+    "scan quick", "scan full", "scan stealth", "scan web", "scan udp", "scan vuln", "scan os",
+    "loot add", "loot clear", "scope add", "scope strict",
+    "help nmap", "help masscan", "help sqlmap", "help msfvenom", "help nikto",
+    "help nuclei", "help gobuster", "help hydra", "help msfconsole",
+    "help enum4linux", "help whatweb", "help searchsploit", "help crackmapexec",
+})
 
 
 class AIScreen(Screen):
@@ -119,6 +133,7 @@ class AIScreen(Screen):
             yield Input(
                 placeholder="goal <objective>  |  explain  |  scan quick <ip>  |  !cmd  |  help",
                 id="ai-input",
+                suggester=SuggestFromList(_COMPLETIONS, case_sensitive=False),
             )
             yield Button("CLR", id="clear-btn")
 

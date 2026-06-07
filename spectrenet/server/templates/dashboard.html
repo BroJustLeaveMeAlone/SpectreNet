@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SpectreNet — Team Dashboard</title>
+  <style>
+    :root {
+      --navy:      #0d1117;
+      --navy-light:#161b22;
+      --cyan:      #00d4ff;
+      --cyan-dim:  #006080;
+      --grey:      #8b949e;
+      --white:     #e6edf3;
+      --green:     #3fb950;
+      --yellow:    #d29922;
+      --red:       #f85149;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--navy);
+      color: var(--white);
+      font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+      font-size: 13px;
+      min-height: 100vh;
+    }
+    header {
+      background: var(--navy-light);
+      border-bottom: 1px solid var(--cyan-dim);
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    header h1 { color: var(--cyan); font-size: 18px; letter-spacing: 1px; }
+    header span { color: var(--grey); font-size: 11px; }
+    #status-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--grey); display: inline-block;
+      margin-right: 6px; transition: background 0.3s;
+    }
+    #status-dot.connected { background: var(--green); }
+
+    main { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; padding: 20px 24px; }
+    @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+
+    .card {
+      background: var(--navy-light);
+      border: 1px solid var(--cyan-dim);
+      border-radius: 6px;
+      padding: 14px 16px;
+    }
+    .card h2 {
+      color: var(--cyan);
+      font-size: 12px;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+      border-bottom: 1px solid var(--cyan-dim);
+      padding-bottom: 6px;
+    }
+    .empty { color: var(--grey); font-style: italic; }
+    .badge {
+      display: inline-block; padding: 2px 8px;
+      border-radius: 3px; font-size: 11px; font-weight: bold;
+      margin-right: 4px;
+    }
+    .badge-green  { background: rgba(63,185,80,.15); color: var(--green); border: 1px solid var(--green); }
+    .badge-yellow { background: rgba(210,153,34,.15); color: var(--yellow); border: 1px solid var(--yellow); }
+    .badge-red    { background: rgba(248,81,73,.15);  color: var(--red);    border: 1px solid var(--red); }
+    .badge-cyan   { background: rgba(0,212,255,.1);   color: var(--cyan);   border: 1px solid var(--cyan-dim); }
+
+    .session-item, .loot-item, .note-item, .event-item {
+      padding: 6px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      display: flex; align-items: flex-start; gap: 8px;
+    }
+    .session-item:last-child, .loot-item:last-child,
+    .note-item:last-child, .event-item:last-child { border-bottom: none; }
+
+    .ts { color: var(--grey); font-size: 11px; white-space: nowrap; }
+    .session-host { color: var(--cyan); font-weight: bold; }
+    .session-meta { color: var(--grey); font-size: 11px; }
+
+    #events-log { grid-column: 1 / -1; }
+    #events-list { max-height: 200px; overflow-y: auto; }
+
+    .broadcast-bar {
+      grid-column: 1 / -1;
+      display: flex; gap: 8px; padding: 0 0 4px;
+    }
+    .broadcast-bar input {
+      flex: 1; background: var(--navy-light); border: 1px solid var(--cyan-dim);
+      color: var(--white); padding: 6px 10px; border-radius: 4px; font-family: inherit;
+      font-size: 12px;
+    }
+    .broadcast-bar input:focus { outline: none; border-color: var(--cyan); }
+    .broadcast-bar button {
+      background: var(--cyan-dim); border: 1px solid var(--cyan); color: var(--cyan);
+      padding: 6px 16px; border-radius: 4px; cursor: pointer; font-family: inherit;
+    }
+    .broadcast-bar button:hover { background: var(--cyan); color: var(--navy); }
+
+    #counters { display: flex; gap: 24px; padding: 0 24px 0; }
+    .counter { display: flex; flex-direction: column; align-items: center; }
+    .counter .num { font-size: 28px; font-weight: bold; color: var(--cyan); }
+    .counter .lbl { font-size: 10px; color: var(--grey); text-transform: uppercase; letter-spacing: 1px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>⬡ SpectreNet — Team Dashboard</h1>
+  <span>
+    <span id="status-dot"></span>
+    <span id="status-text">Connecting…</span>
+  </span>
+</header>
+
+<div id="counters" style="padding: 16px 24px 0;">
+  <div class="counter"><span class="num" id="cnt-sessions">0</span><span class="lbl">Sessions</span></div>
+  <div class="counter"><span class="num" id="cnt-loot">0</span><span class="lbl">Loot</span></div>
+  <div class="counter"><span class="num" id="cnt-notes">0</span><span class="lbl">Notes</span></div>
+  <div class="counter"><span class="num" id="cnt-targets">0</span><span class="lbl">Targets</span></div>
+</div>
+
+<main>
+  <div class="broadcast-bar">
+    <input id="bcast-input" type="text" placeholder="Broadcast message to all operators…" />
+    <button onclick="broadcast()">Send</button>
+  </div>
+
+  <div class="card">
+    <h2>Active Sessions</h2>
+    <div id="sessions-list"><span class="empty">No sessions</span></div>
+  </div>
+
+  <div class="card">
+    <h2>Loot Vault</h2>
+    <div id="loot-list"><span class="empty">No loot yet</span></div>
+  </div>
+
+  <div class="card">
+    <h2>Notes</h2>
+    <div id="notes-list"><span class="empty">No notes</span></div>
+  </div>
+
+  <div class="card" id="events-log" style="grid-column: 1 / -1;">
+    <h2>Event Log</h2>
+    <div id="events-list"></div>
+  </div>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+
+// ── Fetch initial state ───────────────────────────────────────────────────────
+async function loadAll() {
+  const [s, l, n, t] = await Promise.all([
+    fetch('/api/sessions').then(r => r.json()),
+    fetch('/api/loot').then(r => r.json()),
+    fetch('/api/notes').then(r => r.json()),
+    fetch('/api/targets').then(r => r.json()),
+  ]);
+  renderSessions(s.sessions || []);
+  renderLoot(l.loot || []);
+  renderNotes(n.notes || []);
+  $('cnt-targets').textContent = (t.targets || []).length;
+}
+
+// ── Rendering ─────────────────────────────────────────────────────────────────
+function badgeType(type) {
+  const map = { cred: 'badge-red', hash: 'badge-yellow', file: 'badge-cyan', secret: 'badge-yellow' };
+  return `<span class="badge ${map[type] || 'badge-cyan'}">${type}</span>`;
+}
+
+function ts(iso) {
+  return iso ? iso.slice(0,16).replace('T',' ') : '';
+}
+
+function renderSessions(sessions) {
+  $('cnt-sessions').textContent = sessions.length;
+  if (!sessions.length) { $('sessions-list').innerHTML = '<span class="empty">No sessions</span>'; return; }
+  $('sessions-list').innerHTML = sessions.map(s => `
+    <div class="session-item">
+      <span class="badge badge-green">#${s.id}</span>
+      <div>
+        <div class="session-host">${s.host}</div>
+        <div class="session-meta">${s.platform} · ${s.user || '?'} · PID ${s.pid || '?'}</div>
+        <div class="ts">${ts(s.opened)}</div>
+      </div>
+    </div>`).join('');
+}
+
+function renderLoot(loot) {
+  $('cnt-loot').textContent = loot.length;
+  if (!loot.length) { $('loot-list').innerHTML = '<span class="empty">No loot yet</span>'; return; }
+  $('loot-list').innerHTML = loot.slice(-20).reverse().map(e => `
+    <div class="loot-item">
+      ${badgeType(e.type)}
+      <div style="flex:1;overflow:hidden">
+        <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e.text}</div>
+        <div class="ts">${e.operator} · ${ts(e.t)}</div>
+      </div>
+    </div>`).join('');
+}
+
+function renderNotes(notes) {
+  $('cnt-notes').textContent = notes.length;
+  if (!notes.length) { $('notes-list').innerHTML = '<span class="empty">No notes</span>'; return; }
+  $('notes-list').innerHTML = notes.slice(-10).reverse().map(n => `
+    <div class="note-item">
+      <div>
+        <div>${n.text}</div>
+        <div class="ts">${n.operator} · ${ts(n.t)}</div>
+      </div>
+    </div>`).join('');
+}
+
+function addEvent(evt) {
+  const el = $('events-list');
+  const div = document.createElement('div');
+  div.className = 'event-item';
+  div.innerHTML = `<span class="ts">${ts(evt.t || new Date().toISOString())}</span>
+    <span class="badge badge-cyan">${evt.type}</span>
+    <span>${JSON.stringify(evt.data || {})}</span>`;
+  el.insertBefore(div, el.firstChild);
+  if (el.children.length > 100) el.removeChild(el.lastChild);
+}
+
+// ── SSE connection ─────────────────────────────────────────────────────────────
+function connect() {
+  const es = new EventSource('/api/events');
+  es.onopen = () => {
+    $('status-dot').className = 'connected';
+    $('status-text').textContent = 'Connected';
+  };
+  es.onmessage = e => {
+    const evt = JSON.parse(e.data);
+    if (evt.type === 'ping' || evt.type === 'connected') return;
+    addEvent(evt);
+    if (evt.type === 'session_opened' || evt.type === 'session_killed') loadAll();
+    if (evt.type === 'loot_added')  loadAll();
+    if (evt.type === 'note_added')  loadAll();
+    if (evt.type === 'target_added') loadAll();
+  };
+  es.onerror = () => {
+    $('status-dot').className = '';
+    $('status-text').textContent = 'Reconnecting…';
+    es.close();
+    setTimeout(connect, 3000);
+  };
+}
+
+// ── Broadcast ─────────────────────────────────────────────────────────────────
+async function broadcast() {
+  const msg = $('bcast-input').value.trim();
+  if (!msg) return;
+  await fetch('/api/events/broadcast', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({message: msg, operator: 'dashboard'}),
+  });
+  $('bcast-input').value = '';
+}
+
+$('bcast-input').addEventListener('keydown', e => { if (e.key === 'Enter') broadcast(); });
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+loadAll();
+connect();
+setInterval(loadAll, 10000);
+</script>
+</body>
+</html>
