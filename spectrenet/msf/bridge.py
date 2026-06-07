@@ -73,6 +73,14 @@ class MsfBridge:
             log.warning("Failed to list MSF sessions: %s", e)
             return []
 
+    def get_console(self) -> "MsfConsole":
+        """Return (and lazily open) a persistent MSF RPC console."""
+        if not hasattr(self, "_console_instance") or self._console_instance is None:
+            from spectrenet.msf.console import MsfConsole
+            self._console_instance = MsfConsole(self._client)
+            self._console_instance.open()
+        return self._console_instance
+
     def get_session_interactor(self, session_id: str) -> "SessionInteractor":
         from spectrenet.msf.session_interactor import SessionInteractor
         return SessionInteractor(self._client, session_id)

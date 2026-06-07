@@ -9,17 +9,19 @@ from spectrenet import __version__
 from spectrenet.theme import CYAN, CYAN_DIM, NAVY, NAVY_DEEP, NAVY_LIGHT, GREY, WHITE, SUCCESS, WARNING, ERROR, RISK_HIGH
 from spectrenet.tui.approval_gate import ActionCard, ApprovalResult, format_action_card
 from spectrenet.tui.goal_panel import GoalPanel
+from spectrenet.tui.cheat_sheets import CHEATSHEETS, SCAN_PROFILES, parse_nmap_text, suggest_followups
+from spectrenet.workspace import Workspace
 
 log = logging.getLogger("spectrenet")
 
-_DIRECT_TOOLS = {"nmap", "masscan", "sqlmap", "nikto", "nuclei", "msfvenom"}
+_DIRECT_TOOLS = {"nmap", "masscan", "sqlmap", "nikto", "nuclei", "msfvenom", "gobuster", "hydra"}
 
 
 class AIScreen(Screen):
     """AI mode — autonomous goal-directed execution with approval gate."""
 
     BINDINGS = [
-        ("f1", "show_help", "Help"),
+        ("f1",     "show_help",  "Help"),
         ("ctrl+l", "clear_feed", "Clear"),
     ]
 
@@ -68,13 +70,21 @@ class AIScreen(Screen):
 
     def __init__(self, model, registry, recon, msf_bridge=None, **kwargs) -> None:
         super().__init__(**kwargs)
-        self._model = model
+        self._model    = model
         self._registry = registry
-        self._recon = recon
+        self._recon    = recon
         self._msf_bridge = msf_bridge
         self._goal_engine = None
-        self._approval_event: asyncio.Event | None = None
-        self._approval_result: str | None = None
+        self._approval_event:  asyncio.Event | None = None
+        self._approval_result: str | None           = None
+        self._history:     list[str] = []
+        self._history_idx: int       = -1
+        self._last_output: str       = ""
+        self._workspace  = Workspace()
+
+    # ------------------------------------------------------------------
+    # Layout
+    # ------------------------------------------------------------------
 
     def compose(self) -> ComposeResult:
         self.goal_panel = GoalPanel()
@@ -84,22 +94,57 @@ class AIScreen(Screen):
         with Horizontal(id="input-bar"):
             yield Static("ai»", id="prompt-label")
             yield Input(
-                placeholder="goal <objective>  |  stop  |  help  |  classic  |  quit",
+                placeholder="goal <objective>  |  explain  |  scan quick <ip>  |  !cmd  |  help",
                 id="ai-input",
             )
 
     def on_mount(self) -> None:
         self.feed.write(f"[bold {CYAN}]SpectreNet[/] v{__version__} — AI Mode")
         backend_name = type(self._model).__name__.replace("Backend", "").lower()
-        self.feed.write(f"[{GREY}]Backend: {backend_name}  —  type [bold]goal <objective>[/] to begin a mission.[/]")
+        self.feed.write(
+            f"[{GREY}]Backend: {backend_name}  —  type [bold]goal <objective>[/] to begin a mission.[/]"
+        )
         self.feed.write("")
         self.query_one("#ai-input", Input).focus()
+
+    # ------------------------------------------------------------------
+    # Input handling
+    # ------------------------------------------------------------------
+
+    def on_key(self, event) -> None:
+        focused = self.focused
+        if not isinstance(focused, Input) or focused.id != "ai-input":
+            return
+        if event.key == "up":
+            if self._history:
+                self._history_idx = min(self._history_idx + 1, len(self._history) - 1)
+                focused.value = self._history[-(self._history_idx + 1)]
+                focused.cursor_position = len(focused.value)
+            event.prevent_default()
+            event.stop()
+        elif event.key == "down":
+            if self._history_idx > 0:
+                self._history_idx -= 1
+                focused.value = self._history[-(self._history_idx + 1)]
+                focused.cursor_position = len(focused.value)
+            elif self._history_idx == 0:
+                self._history_idx = -1
+                focused.value = ""
+            event.prevent_default()
+            event.stop()
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
         raw = event.value.strip()
         event.input.value = ""
         if not raw:
             return
+
+        # History
+        if not self._history or self._history[-1] != raw:
+            self._history.append(raw)
+        self._history_idx = -1
+
+        self._workspace.add_command(raw)
 
         # Approval gate — only Y/N/S accepted while pending
         if self._approval_event is not None:
@@ -115,11 +160,21 @@ class AIScreen(Screen):
             return
 
         parts = raw.split()
-        verb = parts[0].lower()
+        verb  = parts[0].lower()
+
+        # Shell passthrough
+        if raw.startswith("!"):
+            shell_cmd = raw[1:].strip()
+            if shell_cmd:
+                self.run_worker(self._run_shell(shell_cmd), exclusive=False)
+            return
 
         # Hard-wired commands that must never reach GoalEngine
         if verb in ("help", "?"):
-            self.action_show_help()
+            if len(parts) > 1:
+                self._show_cheatsheet(parts[1].lower())
+            else:
+                self.action_show_help()
             return
         if verb in ("quit", "exit"):
             self.app.exit()
@@ -133,9 +188,38 @@ class AIScreen(Screen):
         if verb == "sessions":
             self._show_sessions()
             return
+
+        # Scan profiles
+        if verb == "scan":
+            self._handle_scan(parts[1:])
+            return
+
+        # Direct tool invocation
         if verb in _DIRECT_TOOLS:
             self.run_worker(self._run_tool(verb, parts[1:]), exclusive=False)
             return
+
+        # explain command
+        if verb == "explain":
+            context = " ".join(parts[1:]) if len(parts) > 1 else self._last_output
+            if not context:
+                self.feed.write(f"[{GREY}]Nothing to explain yet — run a tool first, or: explain <text>[/]")
+            else:
+                self.run_worker(self._explain(context), exclusive=False)
+            return
+
+        # note
+        if verb == "note" and len(parts) > 1:
+            text = " ".join(parts[1:])
+            self._workspace.add_note(text)
+            self.feed.write(f"[{CYAN}]◈ Note saved:[/] {text}")
+            return
+
+        # workspace
+        if verb == "workspace":
+            self._handle_workspace(parts[1:])
+            return
+
         if verb == "stop":
             if self._goal_engine:
                 self._goal_engine.stop()
@@ -153,10 +237,38 @@ class AIScreen(Screen):
             self._start_goal(" ".join(parts[1:]))
             return
 
-        # Fallback: unknown
         self.feed.write(
-            f"[{GREY}]Unknown: [bold]{verb}[/]  —  type [bold {CYAN}]help[/] or [bold {CYAN}]goal <objective>[/][/]"
+            f"[{GREY}]Unknown: [bold]{verb}[/]  —  "
+            f"[bold {CYAN}]help[/]  [bold {CYAN}]goal <objective>[/]  "
+            f"[bold {CYAN}]help nmap[/]  [bold {CYAN}]!cmd[/][/]"
         )
+
+    # ------------------------------------------------------------------
+    # Scan profiles
+    # ------------------------------------------------------------------
+
+    def _handle_scan(self, rest: list[str]) -> None:
+        if not rest:
+            profiles = "  ".join(SCAN_PROFILES.keys())
+            self.feed.write(
+                f"[{GREY}]Usage: [bold]scan <profile> <target>[/]\nProfiles: [bold {CYAN}]{profiles}[/][/]"
+            )
+            return
+        profile = rest[0].lower()
+        target  = rest[1] if len(rest) > 1 else ""
+        if profile not in SCAN_PROFILES:
+            self.feed.write(f"[{GREY}]Unknown profile [bold]{profile}[/]. Available: {', '.join(SCAN_PROFILES)}[/]")
+            return
+        if not target:
+            self.feed.write(f"[{GREY}]Usage: scan {profile} <target>[/]")
+            return
+        flags = SCAN_PROFILES[profile].split()
+        self.feed.write(f"[{GREY}]→ nmap {' '.join(flags)} {target}[/]")
+        self.run_worker(self._run_tool("nmap", [*flags, target]), exclusive=False)
+
+    # ------------------------------------------------------------------
+    # Goal engine
+    # ------------------------------------------------------------------
 
     def _start_goal(self, objective: str) -> None:
         from spectrenet.ai.goal_engine import GoalEngine
@@ -166,8 +278,8 @@ class AIScreen(Screen):
 
         mod_reg = ExploitModuleRegistry()
         mod_reg.discover()
-        exploit_engine = ExploitEngine(mod_reg, self._msf_bridge)
-        interpreter = OutputInterpreter(model=self._model)
+        exploit_engine  = ExploitEngine(mod_reg, self._msf_bridge)
+        interpreter     = OutputInterpreter(model=self._model)
 
         self._goal_engine = GoalEngine(
             model=self._model,
@@ -190,9 +302,9 @@ class AIScreen(Screen):
 
         elif etype == "step":
             action = event.get("action_type", "")
-            tool = event.get("tool", "")
+            tool   = event.get("tool", "")
             target = event.get("target", "")
-            color = {
+            color  = {
                 "recon": CYAN, "exploit": RISK_HIGH,
                 "payload_delivery": RISK_HIGH, "lateral_movement": WARNING,
             }.get(action, WHITE)
@@ -208,14 +320,14 @@ class AIScreen(Screen):
             self.feed.write(f"    [{WARNING}]⊘ step {event.get('step_id')} skipped[/]")
 
         elif etype == "recon_complete":
-            count = event.get("count", 0)
+            count    = event.get("count", 0)
             findings = event.get("findings", [])
             self.feed.write(f"    [{CYAN}]◈ RECON COMPLETE[/] — {count} findings")
             for f in findings[:6]:
-                ip = f.get("ip", "")
+                ip  = f.get("ip", "")
                 port = f.get("port", "")
-                svc = f.get("service", "")
-                ver = f.get("version", "")
+                svc  = f.get("service", "")
+                ver  = f.get("version", "")
                 self.feed.write(f"      [dim]├─ {ip}:{port}  {svc} {ver}[/]")
             if count > 6:
                 self.feed.write(f"      [dim]└─ … and {count - 6} more[/]")
@@ -224,12 +336,12 @@ class AIScreen(Screen):
             self.feed.write(f"  [{WARNING}]◈ REPLANNING[/] — {event.get('reason', '')}")
 
         elif etype == "session_opened":
-            sid = event.get("session_id", "?")
+            sid   = event.get("session_id", "?")
             stype = event.get("session_type", "unknown")
             self.feed.write(f"    [{SUCCESS}]► Session {sid} opened  [{stype}][/]")
 
         elif etype == "post_ex":
-            cmd = event.get("command", "")
+            cmd    = event.get("command", "")
             output = event.get("output", "").strip()
             self.feed.write(f"  [dim]┌─ POST-EX  {cmd}[/]")
             self.feed.write(f"  [dim]│[/]  [{WHITE}]{output}[/]")
@@ -247,7 +359,7 @@ class AIScreen(Screen):
             self.feed.write(format_action_card(card))
 
         elif etype == "success":
-            self.feed.write(f"\n  [{CYAN}]◈[/] [{SUCCESS}]MISSION COMPLETE[/bold] — goal achieved")
+            self.feed.write(f"\n  [{CYAN}]◈[/] [{SUCCESS}]MISSION COMPLETE[/] — goal achieved")
             if self._goal_engine:
                 self.goal_panel.update_goal(self._goal_engine._goal, "SUCCESS")
             self._maybe_write_report()
@@ -264,6 +376,10 @@ class AIScreen(Screen):
             new_goal = event.get("goal", "")
             self.goal_panel.update_goal(new_goal, "RUNNING")
             self.feed.write(f"  [{CYAN}]◈ Goal updated:[/] {new_goal}")
+
+    # ------------------------------------------------------------------
+    # Report
+    # ------------------------------------------------------------------
 
     def _maybe_write_report(self) -> None:
         if self._goal_engine is None:
@@ -283,12 +399,37 @@ class AIScreen(Screen):
 
             writer = ReportWriter(self._model)
             report = writer.generate(_NoStore(), session_id=0, findings=findings)
-            path = "spectrenet_report.md"
+            path   = "spectrenet_report.md"
             with open(path, "w", encoding="utf-8") as f:
                 f.write(report)
             self.feed.write(f"\n  [{CYAN}]◈ Report saved →[/] [bold]{path}[/]")
         except Exception as exc:
             log.warning("Report generation failed: %s", exc)
+
+    # ------------------------------------------------------------------
+    # explain
+    # ------------------------------------------------------------------
+
+    async def _explain(self, text: str) -> None:
+        self.feed.write(f"\n[dim {CYAN}]◈ Analyzing…[/]")
+        try:
+            loop = asyncio.get_event_loop()
+            response = await loop.run_in_executor(
+                None,
+                lambda: self._model.complete(
+                    "You are a penetration testing assistant. Interpret this tool output concisely: "
+                    "what matters, what's interesting, what should be tried next.",
+                    text[:3000],
+                ),
+            )
+            self.feed.write(f"\n[bold {CYAN}]◈ Analysis[/]")
+            self.feed.write(response)
+        except Exception as exc:
+            self.feed.write(f"[red]explain failed: {exc}[/]")
+
+    # ------------------------------------------------------------------
+    # Tool runner
+    # ------------------------------------------------------------------
 
     async def _run_tool(self, tool: str, args: list[str]) -> None:
         cmd_display = f"{tool} {' '.join(args)}".strip()
@@ -300,16 +441,93 @@ class AIScreen(Screen):
                 stderr=asyncio.subprocess.PIPE,
             )
             stdout, stderr = await proc.communicate()
+            output_text = ""
             if stdout:
-                self.feed.write(stdout.decode(errors="replace"))
+                output_text = stdout.decode(errors="replace")
+                self.feed.write(output_text)
             if stderr:
                 t = stderr.decode(errors="replace").strip()
                 if t:
                     self.feed.write(f"[{GREY}]{t}[/]")
+
+            self._last_output = output_text
+
+            # Auto-suggest follow-ups
+            if output_text and tool in ("nmap", "masscan", "nikto", "gobuster"):
+                suggestions = suggest_followups(tool, output_text, args)
+                if suggestions:
+                    self.feed.write(f"\n[dim {CYAN}]◈ Suggested follow-ups:[/]")
+                    for s in suggestions:
+                        self.feed.write(f"  [{GREY}]▸[/] [dim]{s}[/]")
+
         except FileNotFoundError:
             self.feed.write(f"[red]'{tool}' not found on PATH.[/]")
         except Exception as exc:
             self.feed.write(f"[red]Error: {exc}[/]")
+
+    # ------------------------------------------------------------------
+    # Shell passthrough
+    # ------------------------------------------------------------------
+
+    async def _run_shell(self, cmd: str) -> None:
+        self.feed.write(f"\n[bold {CYAN}]$ {cmd}[/]")
+        try:
+            proc = await asyncio.create_subprocess_shell(
+                cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            stdout, stderr = await proc.communicate()
+            if stdout:
+                text = stdout.decode(errors="replace")
+                self.feed.write(text)
+                self._last_output = text
+            if stderr:
+                t = stderr.decode(errors="replace").strip()
+                if t:
+                    self.feed.write(f"[{GREY}]{t}[/]")
+        except Exception as exc:
+            self.feed.write(f"[red]Shell error: {exc}[/]")
+
+    # ------------------------------------------------------------------
+    # Cheat sheets
+    # ------------------------------------------------------------------
+
+    def _show_cheatsheet(self, tool: str) -> None:
+        content = CHEATSHEETS.get(tool)
+        if content:
+            self.feed.write(content)
+        else:
+            available = "  ".join(sorted(CHEATSHEETS.keys()))
+            self.feed.write(
+                f"[{GREY}]No cheat sheet for [bold]{tool}[/]. "
+                f"Available: [bold {CYAN}]{available}[/][/]"
+            )
+
+    # ------------------------------------------------------------------
+    # Workspace
+    # ------------------------------------------------------------------
+
+    def _handle_workspace(self, rest: list[str]) -> None:
+        sub = rest[0].lower() if rest else "status"
+        if sub == "save":
+            self._workspace.save()
+            self.feed.write(f"[{CYAN}]◈ Workspace saved →[/] {self._workspace._path}")
+        elif sub == "load":
+            if self._workspace.load():
+                self.feed.write(f"[{CYAN}]◈ Workspace loaded.[/]  {self._workspace.summary()}")
+            else:
+                self.feed.write(f"[{GREY}]No workspace file found.[/]")
+        elif sub == "new":
+            self._workspace.reset()
+            self.feed.write(f"[{CYAN}]◈ New workspace started.[/]")
+        else:
+            self.feed.write(f"[{CYAN}]◈ Workspace[/]  {self._workspace.summary()}")
+            self.feed.write(f"[{GREY}]  workspace save  |  workspace load  |  workspace new[/]")
+
+    # ------------------------------------------------------------------
+    # Info helpers
+    # ------------------------------------------------------------------
 
     def _show_sessions(self) -> None:
         if self._msf_bridge is None or not self._msf_bridge.is_connected():
@@ -321,6 +539,10 @@ class AIScreen(Screen):
             return
         for s in sessions:
             self.feed.write(f"  [{SUCCESS}]{s.id}[/]  {getattr(s, 'type', '?')}")
+
+    # ------------------------------------------------------------------
+    # Actions
+    # ------------------------------------------------------------------
 
     def action_show_help(self) -> None:
         from spectrenet.tui.help_screen import HelpScreen
