@@ -15,7 +15,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0", "pytest-cov>=4.1"]
+dev = ["pytest>=8.0", "pytest-cov>=4.1", "pytest-asyncio>=0.23"]
 msf = ["pymetasploit3>=1.0"]
 
 [project.scripts]
@@ -25,6 +25,7 @@ snet = "spectrenet.cli:main"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-v"
+asyncio_mode = "auto"
 
 [tool.setuptools.packages.find]
 include = ["spectrenet*"]
