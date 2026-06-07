@@ -1,12 +1,43 @@
+# Python
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
 .pytest_cache/
 *.egg-info/
+dist/
+build/
+
+# Virtual environments
 .venv/
+venv/
+env/
+
+# Secrets & config
+.env
+*.env
+
+# Databases & logs
 *.db
 *.sqlite
+*.log
+
+# Test coverage
 .coverage
-spectrenet.log
+htmlcov/
+
+# Type checking
+.mypy_cache/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# SpectreNet runtime files
 review_output.txt
 .spectrenet_workspace.json
 spectrenet_report.md
