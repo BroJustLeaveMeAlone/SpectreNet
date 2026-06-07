@@ -9,18 +9,27 @@ from spectrenet.tui.app import SpectreNetApp
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        prog="spectrenet", description="SpectreNet — Always one step ahead"
+        prog="spectrenet",
+        description="SpectreNet — Always one step ahead",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "Without flags, SpectreNet shows the interactive mode selector on startup.\n"
+            "Use --model to skip the selector for scripting or quick re-launch."
+        ),
     )
-    parser.add_argument("--config", default="config.yaml")
-    parser.add_argument("--model", choices=["ollama", "openai", "none"], default=None,
-                        help="AI model backend (overrides config)")
-    parser.add_argument("--openai-base-url", default=None,
-                        help="OpenAI-compatible API base URL (e.g. https://api.deepseek.com)")
-    parser.add_argument("--openai-api-key", default=None,
+    parser.add_argument("--config", default="config.yaml", metavar="FILE")
+    parser.add_argument(
+        "--model", choices=["ollama", "openai", "none"], default=None,
+        metavar="BACKEND",
+        help="Skip startup mode selector and launch with this AI backend (optional)",
+    )
+    parser.add_argument("--openai-base-url", default=None, metavar="URL",
+                        help="OpenAI-compatible API base URL")
+    parser.add_argument("--openai-api-key",  default=None, metavar="KEY",
                         help="API key for OpenAI-compatible backend")
-    parser.add_argument("--msf-host", default="127.0.0.1", help="msfrpcd host")
-    parser.add_argument("--msf-port", type=int, default=55553, help="msfrpcd port")
-    parser.add_argument("--msf-password", default="msf", help="msfrpcd password")
+    parser.add_argument("--msf-host",     default="127.0.0.1")
+    parser.add_argument("--msf-port",     type=int, default=55553)
+    parser.add_argument("--msf-password", default="msf")
     args = parser.parse_args()
 
     cfg = load_config(Path(args.config))
@@ -30,25 +39,6 @@ def main() -> None:
     registry = WrapperRegistry()
     registry.discover()
     recon = ReconEngine(registry)
-
-    model = None
-    backend = args.model or cfg.model_backend
-    if backend == "ollama":
-        try:
-            from spectrenet.model.ollama_backend import OllamaBackend
-            model = OllamaBackend(model=cfg.model_name, url=cfg.ollama_url)
-            log.info("AI mode: Ollama (%s)", cfg.model_name)
-        except Exception as e:
-            log.warning("Failed to initialise Ollama backend: %s — running in Classic mode", e)
-    elif backend == "openai":
-        try:
-            from spectrenet.model.openai_backend import OpenAIBackend
-            base_url = args.openai_base_url or cfg.openai_base_url
-            api_key  = args.openai_api_key  or cfg.openai_api_key
-            model = OpenAIBackend(model=cfg.model_name, base_url=base_url, api_key=api_key)
-            log.info("AI mode: OpenAI-compatible (%s @ %s)", cfg.model_name, base_url)
-        except Exception as e:
-            log.warning("Failed to initialise OpenAI backend: %s — running in Classic mode", e)
 
     msf_bridge = None
     try:
@@ -62,7 +52,51 @@ def main() -> None:
     except Exception as e:
         log.warning("MSF bridge unavailable: %s", e)
 
-    SpectreNetApp(registry=registry, recon=recon, model=model, msf_bridge=msf_bridge).run()
+    app = SpectreNetApp(registry=registry, recon=recon, config=cfg, msf_bridge=msf_bridge)
+
+    # --model skips the interactive mode selector
+    if args.model and args.model != "none":
+        model = None
+        if args.model == "ollama":
+            try:
+                from spectrenet.model.ollama_backend import OllamaBackend
+                model = OllamaBackend(model=cfg.model_name, url=cfg.ollama_url)
+            except Exception as e:
+                log.warning("Ollama init failed: %s — falling back to mode selector", e)
+        elif args.model == "openai":
+            try:
+                from spectrenet.model.openai_backend import OpenAIBackend
+                model = OpenAIBackend(
+                    model=cfg.model_name,
+                    base_url=args.openai_base_url or cfg.openai_base_url,
+                    api_key=args.openai_api_key  or cfg.openai_api_key,
+                )
+            except Exception as e:
+                log.warning("OpenAI init failed: %s — falling back to mode selector", e)
+
+        if model is not None:
+            # Monkey-patch on_mount to skip mode selector and go straight to AI mode
+            _orig_mount = app.on_mount
+
+            def _ai_mount():
+                from spectrenet.tui.ai_screen import AIScreen
+                app.push_screen(AIScreen(
+                    model=model, registry=registry, recon=recon, msf_bridge=msf_bridge
+                ))
+            app.on_mount = _ai_mount
+        else:
+            # --model none OR failed init → Classic mode directly
+            _orig_mount = app.on_mount
+
+            def _classic_mount():
+                from spectrenet.tui.classic_screen import ClassicScreen
+                app.push_screen(ClassicScreen(
+                    registry=registry, recon=recon, msf_bridge=msf_bridge
+                ))
+            if args.model == "none":
+                app.on_mount = _classic_mount
+
+    app.run()
 
 
 if __name__ == "__main__":
