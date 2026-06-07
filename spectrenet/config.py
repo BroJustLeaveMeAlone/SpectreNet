@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 import yaml
 
@@ -9,11 +9,15 @@ class Config:
     ollama_url: str = "http://localhost:11434"
     openai_base_url: str = "https://api.openai.com"
     openai_api_key: str = ""
+    together_api_key: str = ""
+    together_model: str = "spectrenet/spectre-70b"
     storage_backend: str = "sqlite"
     db_path: str = "spectrenet.db"
     server_port: int = 7777
     operator_name: str = "operator"
     log_level: str = "INFO"
+    scope: list = field(default_factory=list)
+    scope_strict: bool = False
 
 def load_config(path: Path) -> Config:
     path = Path(path)

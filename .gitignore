@@ -40,4 +40,6 @@ Thumbs.db
 # SpectreNet runtime files
 review_output.txt
 .spectrenet_workspace.json
-spectrenet_report.md
+.spectrenet_loot.json
+.spectrenet_cve.db
+spectrenet_report*.md

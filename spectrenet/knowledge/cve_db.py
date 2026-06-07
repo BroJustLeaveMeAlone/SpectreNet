@@ -24,3 +24,6 @@ class CVEKnowledgeBase:
             "SELECT * FROM cves WHERE service=? ORDER BY cvss DESC", (service,)
         ).fetchall()
         return [dict(r) for r in rows]
+
+    def close(self) -> None:
+        self.conn.close()

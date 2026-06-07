@@ -11,10 +11,13 @@ from spectrenet.tui.approval_gate import ActionCard, ApprovalResult, format_acti
 from spectrenet.tui.goal_panel import GoalPanel
 from spectrenet.tui.cheat_sheets import CHEATSHEETS, SCAN_PROFILES, parse_nmap_text, suggest_followups
 from spectrenet.workspace import Workspace
+from spectrenet.loot import LootVault
+from spectrenet.scope import ScopeEnforcer
+from spectrenet.knowledge.cve_enricher import CVEEnricher
 
 log = logging.getLogger("spectrenet")
 
-_DIRECT_TOOLS = {"nmap", "masscan", "sqlmap", "nikto", "nuclei", "msfvenom", "gobuster", "hydra"}
+_DIRECT_TOOLS = {"nmap", "masscan", "sqlmap", "nikto", "nuclei", "msfvenom", "gobuster", "hydra", "enum4linux", "whatweb", "searchsploit"}
 
 
 class AIScreen(Screen):
@@ -81,12 +84,13 @@ class AIScreen(Screen):
     }}
     """
 
-    def __init__(self, model, registry, recon, msf_bridge=None, **kwargs) -> None:
+    def __init__(self, model, registry, recon, msf_bridge=None, config=None, **kwargs) -> None:
         super().__init__(**kwargs)
         self._model    = model
         self._registry = registry
         self._recon    = recon
         self._msf_bridge = msf_bridge
+        self._config     = config
         self._goal_engine = None
         self._approval_event:  asyncio.Event | None = None
         self._approval_result: str | None           = None
@@ -94,6 +98,12 @@ class AIScreen(Screen):
         self._history_idx: int       = -1
         self._last_output: str       = ""
         self._workspace  = Workspace()
+        self._loot       = LootVault()
+        self._scope      = ScopeEnforcer(
+            getattr(config, "scope", None) or [],
+            getattr(config, "scope_strict", False),
+        )
+        self._enricher   = CVEEnricher()
 
     # ------------------------------------------------------------------
     # Layout
@@ -232,6 +242,21 @@ class AIScreen(Screen):
         # workspace
         if verb == "workspace":
             self._handle_workspace(parts[1:])
+            return
+
+        # loot vault
+        if verb == "loot":
+            self._handle_loot(parts[1:])
+            return
+
+        # scope enforcement
+        if verb == "scope":
+            self._handle_scope(parts[1:])
+            return
+
+        # report export
+        if verb == "report":
+            self._generate_report()
             return
 
         if verb == "stop":
@@ -446,6 +471,16 @@ class AIScreen(Screen):
     # ------------------------------------------------------------------
 
     async def _run_tool(self, tool: str, args: list[str]) -> None:
+        # Scope check
+        if self._scope.active:
+            in_scope, out = self._scope.check_args(args)
+            if not in_scope:
+                ips_str = ", ".join(out)
+                if self._scope._strict:
+                    self.feed.write(f"[red]⊘ Scope violation:[/] {ips_str} not in scope. Blocked.")
+                    return
+                self.feed.write(f"[{WARNING}]⚠ Out-of-scope:[/] {ips_str} — proceeding (warn mode)")
+
         cmd_display = f"{tool} {' '.join(args)}".strip()
         self.feed.write(f"\n[bold {CYAN}]▸ {cmd_display}[/]")
         try:
@@ -465,6 +500,25 @@ class AIScreen(Screen):
                     self.feed.write(f"[{GREY}]{t}[/]")
 
             self._last_output = output_text
+
+            # Populate findings + CVE enrichment for nmap/masscan
+            if tool in ("nmap", "masscan") and output_text:
+                parsed = parse_nmap_text(output_text)
+                if parsed:
+                    for ip in parsed:
+                        self._workspace.add_target(ip)
+                    alerts = self._enricher.enrich(parsed)
+                    if alerts:
+                        self.feed.write(f"\n[bold yellow]◈ CVE Alerts ({len(alerts)})[/]")
+                        for a in alerts[:10]:
+                            cvss_color = "red" if a["cvss"] >= 9.0 else WARNING
+                            self.feed.write(
+                                f"  [{cvss_color}]■[/] [{GREY}]{a['ip']}:{a['port']}[/]  "
+                                f"[bold]{a['cve_id']}[/] CVSS {a['cvss']:.1f} — "
+                                f"{a['description'][:90]}"
+                            )
+                        if len(alerts) > 10:
+                            self.feed.write(f"  [{GREY}]… and {len(alerts)-10} more[/]")
 
             # Auto-suggest follow-ups
             if output_text and tool in ("nmap", "masscan", "nikto", "gobuster"):
@@ -538,6 +592,78 @@ class AIScreen(Screen):
         else:
             self.feed.write(f"[{CYAN}]◈ Workspace[/]  {self._workspace.summary()}")
             self.feed.write(f"[{GREY}]  workspace save  |  workspace load  |  workspace new[/]")
+
+    # ------------------------------------------------------------------
+    # Loot vault
+    # ------------------------------------------------------------------
+
+    def _handle_loot(self, rest: list[str]) -> None:
+        if not rest or rest[0].lower() in ("show", "ls"):
+            entries = self._loot.all()
+            if not entries:
+                self.feed.write(f"[{GREY}]Loot vault empty.[/]")
+                return
+            self.feed.write(f"\n[bold {CYAN}]◈ Loot Vault[/]  [{GREY}]{self._loot.summary()}[/]")
+            for e in entries:
+                ts = e["t"][:16]
+                self.feed.write(f"  [{SUCCESS}]{e['type']:<8}[/]  {e['text']}  [dim]{ts}[/]")
+            return
+        sub = rest[0].lower()
+        if sub == "clear":
+            self._loot.clear()
+            self.feed.write(f"[{CYAN}]◈ Loot vault cleared.[/]")
+            return
+        if sub in LootVault.TYPES and len(rest) > 1:
+            text = " ".join(rest[1:])
+            self._loot.add(sub, text)
+            self.feed.write(f"[{SUCCESS}]◈ Loot added:[/] [{sub}] {text}")
+            return
+        self.feed.write(
+            f"[{GREY}]loot show  |  loot cred <text>  |  loot hash <text>  "
+            f"|  loot file <text>  |  loot secret <text>  |  loot clear[/]"
+        )
+
+    # ------------------------------------------------------------------
+    # Scope enforcement
+    # ------------------------------------------------------------------
+
+    def _handle_scope(self, rest: list[str]) -> None:
+        if not rest:
+            self.feed.write(f"[{CYAN}]◈ Scope:[/]  {self._scope.summary()}")
+            self.feed.write(f"[{GREY}]  scope add <cidr>  |  scope check <ip>[/]")
+            return
+        sub = rest[0].lower()
+        if sub == "add" and len(rest) > 1:
+            if self._scope.add(rest[1]):
+                self.feed.write(f"[{CYAN}]◈ Added to scope:[/] {rest[1]}")
+            else:
+                self.feed.write(f"[red]Invalid CIDR: {rest[1]}[/]")
+            return
+        if sub == "check" and len(rest) > 1:
+            ip = rest[1]
+            in_scope = self._scope.in_scope(ip)
+            badge = f"[{SUCCESS}]in scope ✓[/]" if in_scope else f"[red]out of scope ✗[/]"
+            self.feed.write(f"  {ip}: {badge}")
+            return
+        self.feed.write(f"[{GREY}]scope add <cidr>  |  scope check <ip>[/]")
+
+    # ------------------------------------------------------------------
+    # Report export
+    # ------------------------------------------------------------------
+
+    def _generate_report(self) -> None:
+        from spectrenet.tui.report_exporter import generate_report
+        from datetime import datetime
+        operator = getattr(self._config, "operator_name", "operator") if self._config else "operator"
+        md   = generate_report(self._workspace, self._loot, {}, operator)
+        ts   = datetime.now().strftime("%Y%m%d_%H%M%S")
+        path = f"spectrenet_report_{ts}.md"
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(md)
+        self.feed.write(
+            f"[{CYAN}]◈ Report saved →[/] [bold]{path}[/]  "
+            f"[{GREY}]({len(md.splitlines())} lines)[/]"
+        )
 
     # ------------------------------------------------------------------
     # Info helpers
