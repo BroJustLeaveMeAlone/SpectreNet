@@ -66,6 +66,33 @@ _CLASSIC_HELP = f"""\
   [bold {WHITE}]workspace[/]                            Show workspace status
   [bold {WHITE}]workspace save[/] / [bold {WHITE}]load[/] / [bold {WHITE}]new[/]       Persist session across runs
 
+[bold {CYAN}]── AI PROVIDERS & MODELS ─────────────────────────────────────────────────[/]
+  [bold {WHITE}]providers[/]                            Open the providers & models panel
+  [bold {WHITE}]model list[/]                           List available SpectreBot variants
+  [bold {WHITE}]model download[/] [dim]<name>[/]               [cyan]model download spectrenet-7b[/]
+  [bold {WHITE}]model status[/]                         Show downloaded models + disk usage
+  [bold {WHITE}]model remove[/] [dim]<name>[/]                  Delete a downloaded adapter
+
+  Providers (configure in config.yaml):
+    [bold {WHITE}]ollama[/]       Local — [dim]ollama_url: http://localhost:11434[/]
+    [bold {WHITE}]openai[/]       openai.com — [dim]openai_api_key: sk-...[/]
+    [bold {WHITE}]anthropic[/]    console.anthropic.com — [dim]anthropic_api_key: sk-ant-...[/]
+    [bold {WHITE}]groq[/]         console.groq.com (free) — [dim]groq_api_key: gsk_...[/]
+    [bold {WHITE}]openrouter[/]   openrouter.ai — [dim]openrouter_api_key: sk-or-...[/]
+    [bold {WHITE}]spectre[/]      SpectreBot on Together.ai — [dim]together_api_key: ...[/]
+    [bold {WHITE}]local[/]        Downloaded SpectreBot — [dim]local_model_name: spectrenet-7b[/]
+
+  SpectreBot variants (snet model download <name>):
+    [bold {WHITE}]spectrenet-mini[/]   3.8B Phi-3  — 4 GB+ VRAM or CPU
+    [bold {WHITE}]spectrenet-7b[/]     7B Mistral  — 8 GB+ VRAM   (recommended)
+    [bold {WHITE}]spectrenet-8b[/]     8B Llama 3.1 — 10 GB+ VRAM
+
+  Training your own SpectreBot:
+    1. [dim]snet train export --output training_data[/]
+    2. Upload [dim]training_data.train.jsonl[/] to Kaggle as a Dataset
+    3. Open [dim]notebooks/spectrenet_finetune.ipynb[/] on Kaggle (free T4 GPU)
+    4. Run all cells → download adapter → [dim]snet model status[/]
+
 [bold {CYAN}]── NAVIGATION ────────────────────────────────────────────────────────────[/]
   [bold {WHITE}]↑ / ↓[/]                                Command history navigation
   [bold {WHITE}]F1[/]  [dim]/ help[/]                         This screen
@@ -111,6 +138,15 @@ _AI_HELP = f"""\
 [bold {CYAN}]── WORKSPACE & NOTES ─────────────────────────────────────────────────────[/]
   [bold {WHITE}]note[/] [dim]<text>[/]               Add a note to current workspace
   [bold {WHITE}]workspace[/] / save / load / new
+
+[bold {CYAN}]── AI PROVIDERS & MODELS ─────────────────────────────────────────────────[/]
+  [bold {WHITE}]providers[/]               Open the providers & models panel
+  [bold {WHITE}]model list[/]              List available SpectreBot variants
+  [bold {WHITE}]model download[/] [dim]<name>[/]    [cyan]model download spectrenet-7b[/]
+  [bold {WHITE}]model status[/]            Show downloaded models + disk usage
+    Providers: ollama · openai · anthropic · groq · openrouter · spectre · local
+    SpectreBot: spectrenet-mini (3.8B)  spectrenet-7b (7B)  spectrenet-8b (8B)
+    See [bold {WHITE}]help models[/] for full setup guide (config keys, Kaggle training)
 
 [bold {CYAN}]── NAVIGATION ────────────────────────────────────────────────────────────[/]
   [bold {WHITE}]↑ / ↓[/]      History    [bold {WHITE}]classic[/]  Back to Classic mode

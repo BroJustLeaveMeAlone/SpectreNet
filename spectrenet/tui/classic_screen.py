@@ -29,6 +29,8 @@ _COMPLETIONS = sorted(_DIRECT_TOOLS | {
     "scan", "msf", "loot", "scope", "report", "note", "workspace",
     "sessions", "session", "postex", "explain", "ai", "tools", "help",
     "clear", "quit", "exit",
+    "providers",
+    "model list", "model download", "model status", "model remove",
     "scan quick", "scan full", "scan stealth", "scan web", "scan udp", "scan vuln", "scan os",
     "loot add", "loot clear", "scope add", "scope strict",
     "report html",
@@ -38,7 +40,7 @@ _COMPLETIONS = sorted(_DIRECT_TOOLS | {
     "help nmap", "help masscan", "help sqlmap", "help msfvenom", "help nikto",
     "help nuclei", "help gobuster", "help hydra", "help msfconsole",
     "help enum4linux", "help whatweb", "help searchsploit", "help crackmapexec",
-    "help shodan", "help subfinder",
+    "help shodan", "help subfinder", "help models",
 })
 
 
@@ -257,6 +259,15 @@ class ClassicScreen(Screen):
 
         if verb == "clear":
             self.action_clear_feed()
+            return
+
+        if verb == "providers":
+            from spectrenet.tui.providers_screen import ProvidersScreen
+            self.app.push_screen(ProvidersScreen(config=self._config))
+            return
+
+        if verb == "model":
+            self._handle_model(rest)
             return
 
         if verb == "ai":
@@ -560,6 +571,10 @@ class ClassicScreen(Screen):
     # ------------------------------------------------------------------
 
     def _show_cheatsheet(self, tool: str) -> None:
+        if tool == "models":
+            from spectrenet.tui.providers_screen import ProvidersScreen
+            self.app.push_screen(ProvidersScreen(config=self._config))
+            return
         content = CHEATSHEETS.get(tool)
         if content:
             self.feed.write(content)
@@ -567,7 +582,7 @@ class ClassicScreen(Screen):
             available = "  ".join(sorted(CHEATSHEETS.keys()))
             self.feed.write(
                 f"[{GREY}]No cheat sheet for [bold]{tool}[/]. "
-                f"Available: [bold {CYAN}]{available}[/][/]"
+                f"Available: [bold {CYAN}]{available}[/]  models[/]"
             )
 
     # ------------------------------------------------------------------
@@ -754,6 +769,95 @@ class ClassicScreen(Screen):
             return
 
         self.feed.write(f"[{GREY}]postex sessions  |  postex register <host> [platform] [user]  |  postex enum <id>  |  postex pivot <id>[/]")
+
+    # ------------------------------------------------------------------
+    # Model manager
+    # ------------------------------------------------------------------
+
+    def _handle_model(self, rest: list[str]) -> None:
+        sub = rest[0].lower() if rest else "list"
+        from spectrenet.models.registry import list_models, SPECTRENET_MODELS
+        from spectrenet.models.downloader import is_downloaded, disk_usage_mb, MODELS_DIR
+
+        if sub == "list":
+            self.feed.write(f"\n[bold {CYAN}]◈ SpectreBot Models[/]")
+            self.feed.write(
+                f"  [bold {'─'*60}][/]"
+            )
+            for m in list_models():
+                dl   = is_downloaded(m["name"])
+                flag = f"[{SUCCESS}]✓ downloaded[/]" if dl else f"[{GREY}]not downloaded[/]"
+                self.feed.write(
+                    f"  [bold {WHITE}]{m['name']:<22}[/]  {flag}"
+                )
+                self.feed.write(
+                    f"  [{GREY}]  {m['description'][:64]}[/]"
+                )
+            self.feed.write(
+                f"\n[{GREY}]  model download spectrenet-7b  |  model status  |  model remove <name>[/]"
+            )
+            return
+
+        if sub == "status":
+            self.feed.write(f"\n[bold {CYAN}]◈ Downloaded SpectreBot Adapters[/]")
+            any_found = False
+            for m in list_models():
+                if is_downloaded(m["name"]):
+                    mb = disk_usage_mb(m["name"])
+                    self.feed.write(
+                        f"  [{SUCCESS}]✓[/] [bold]{m['name']}[/]  "
+                        f"[{GREY}]{mb:.0f} MB  {MODELS_DIR / m['name']}[/]"
+                    )
+                    any_found = True
+            if not any_found:
+                self.feed.write(
+                    f"  [{GREY}]No models downloaded. Run: [bold {CYAN}]model download spectrenet-7b[/][/]"
+                )
+            return
+
+        if sub == "download" and len(rest) >= 2:
+            name = rest[1].lower()
+            meta = SPECTRENET_MODELS.get(name)
+            if not meta:
+                available = ", ".join(SPECTRENET_MODELS)
+                self.feed.write(f"[red]Unknown model '{name}'.[/] Available: {available}")
+                return
+            self.feed.write(
+                f"[{GREY}]Downloading {name} from {meta['hf_repo']} …[/]"
+            )
+            self.run_worker(self._do_model_download(name, meta["hf_repo"]), exclusive=False)
+            return
+
+        if sub == "remove" and len(rest) >= 2:
+            name = rest[1].lower()
+            from spectrenet.models.downloader import remove
+            if remove(name):
+                self.feed.write(f"[{CYAN}]◈ Removed adapter: {name}[/]")
+            else:
+                self.feed.write(f"[{GREY}]'{name}' is not downloaded.[/]")
+            return
+
+        self.feed.write(
+            f"[{GREY}]model list  |  model download <name>  |  model status  |  model remove <name>[/]"
+        )
+
+    async def _do_model_download(self, name: str, hf_repo: str) -> None:
+        loop = asyncio.get_event_loop()
+        try:
+            from spectrenet.models.downloader import download
+            path = await loop.run_in_executor(None, lambda: download(name, hf_repo))
+            self.feed.write(f"[{SUCCESS}]◈ Downloaded {name} → {path}[/]")
+            self.feed.write(
+                f"[{GREY}]  Set in config.yaml:  model_backend: local  local_model_name: {name}[/]"
+            )
+        except ImportError as e:
+            self.feed.write(f"[red]Missing package:[/] {e}")
+        except Exception as e:
+            self.feed.write(f"[red]Download failed:[/] {e}")
+            self.feed.write(
+                f"[{GREY}]  The model may not be published yet. "
+                f"Check https://huggingface.co/SpectreNet[/]"
+            )
 
     # ------------------------------------------------------------------
     # Info helpers
