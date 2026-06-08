@@ -80,7 +80,6 @@ class HTTPFuzzer:
             except urllib.error.HTTPError as e:
                 status = e.code
                 length = 0
-                t0 = time.monotonic() - t0
             except Exception:
                 return None
             elapsed = time.monotonic() - t0

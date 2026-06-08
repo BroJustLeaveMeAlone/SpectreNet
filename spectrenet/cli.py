@@ -65,6 +65,15 @@ def _build_parser() -> argparse.ArgumentParser:
                      help="Output file prefix (creates .train.jsonl + .val.jsonl)")
     exp.add_argument("--db", default=None, metavar="PATH",
                      help="Path to spectrenet.db (default: current dir)")
+    ev = trn_sub.add_parser("eval", help="Compare two model backends on pentest prompts")
+    ev.add_argument("--baseline",  default="ollama:llama3.1:8b", metavar="SPEC",
+                    help="Baseline backend spec  (default: ollama:llama3.1:8b)")
+    ev.add_argument("--candidate", default=None, metavar="SPEC",
+                    help="Candidate backend spec (default: same as baseline for dry-run). "
+                         "Format: ollama:<model> | local:<adapter>:<base> | "
+                         "groq:<model>:<key> | openrouter:<model>:<key>")
+    ev.add_argument("--baseline-label",  default="Baseline",   metavar="LABEL")
+    ev.add_argument("--candidate-label", default="SpectreBot", metavar="LABEL")
 
     cfg_cmd = sub.add_parser("config", help="Configure SpectreNet settings")
     cfg_sub = cfg_cmd.add_subparsers(dest="config_cmd")
@@ -125,8 +134,20 @@ def main() -> None:
             print("  1. Upload the .train.jsonl file to Kaggle as a Dataset")
             print("  2. Open notebooks/spectrenet_finetune.ipynb on Kaggle")
             print("  3. Run all cells to fine-tune SpectreBot")
+        elif train_cmd == "eval":
+            from spectrenet.training.eval import run_eval, _build_backend
+            baseline  = _build_backend(args.baseline)
+            candidate = _build_backend(args.candidate) if args.candidate else baseline
+            run_eval(
+                baseline_fn     = lambda s, u: baseline.complete(s, u),
+                candidate_fn    = lambda s, u: candidate.complete(s, u),
+                baseline_label  = args.baseline_label,
+                candidate_label = args.candidate_label,
+            )
         else:
-            print("Usage: snet train export [--output PATH] [--db spectrenet.db]")
+            print("Usage: snet train <export|eval> [options]")
+            print("  export  Export session logs as fine-tuning data")
+            print("  eval    Compare two model backends on pentest prompts")
         return
 
     # ── snet config ────────────────────────────────────────────────────────────

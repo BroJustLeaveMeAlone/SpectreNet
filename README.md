@@ -34,8 +34,8 @@
 ---
 
 ![Python](https://img.shields.io/badge/Python-3.11%2B-00c8ff?style=flat-square&logo=python&logoColor=white&labelColor=050d1a)
-![Phase](https://img.shields.io/badge/Phase-4%20Complete-00c8ff?style=flat-square&labelColor=050d1a)
-![Tests](https://img.shields.io/badge/Tests-123%20passed-4dffa3?style=flat-square&labelColor=050d1a)
+![Phase](https://img.shields.io/badge/Phase-5%20In%20Progress-ffb84d?style=flat-square&labelColor=050d1a)
+![Tests](https://img.shields.io/badge/Tests-276%20passed-4dffa3?style=flat-square&labelColor=050d1a)
 ![License](https://img.shields.io/badge/License-MIT-00c8ff?style=flat-square&labelColor=050d1a)
 ![Status](https://img.shields.io/badge/Status-In%20Development-ffb84d?style=flat-square&labelColor=050d1a)
 
@@ -96,7 +96,7 @@ Every tool wrapper normalizes output to a common JSON schema. Drop a file into `
 | Desktop GUI | Tauri (Phase 4) |
 | Web dashboard | FastAPI — embedded, LAN-accessible (Phase 4) |
 | AI orchestration | Custom Python — direct prompt control |
-| Model backend | Ollama (local, default) · any OpenAI-spec endpoint (DeepSeek, Qwen, LM Studio, vLLM) |
+| Model backend | Ollama · OpenAI-compatible · Anthropic · Groq · OpenRouter · Local SpectreBot adapter |
 | MSF bridge | pymetasploit3 + msfrpc |
 | Recon tools | nmap, masscan |
 | Storage | SQLite (solo) / PostgreSQL (team, Phase 4) |
@@ -107,11 +107,11 @@ Every tool wrapper normalizes output to a common JSON schema. Drop a file into `
 ## Build Roadmap
 
 ```
-Phase 1 — Foundation              ██████████  COMPLETE  ✓
-Phase 2 — Core Attack Loop        ██████████  COMPLETE  ✓
-Phase 3 — Goal-Directed AI        ██████████  COMPLETE  ✓
+Phase 1 — Foundation               ██████████  COMPLETE  ✓
+Phase 2 — Core Attack Loop         ██████████  COMPLETE  ✓
+Phase 3 — Goal-Directed AI         ██████████  COMPLETE  ✓
 Phase 4 — Intelligence & Reporting ██████████  COMPLETE  ✓
-Phase 5 — Full Platform           ░░░░░░░░░░  Planned
+Phase 5 — Full Platform            █████████░  In Progress
 ```
 
 ### Phase 1 — Foundation ✓
@@ -153,12 +153,15 @@ Phase 5 — Full Platform           ░░░░░░░░░░  Planned
 - [x] `GoalEngine` failure-aware replanning — failed steps injected into AI state for next cycle
 - [x] OpenAI-compatible backend — DeepSeek, Qwen, LM Studio, vLLM, or any OpenAI-spec endpoint
 
-### Phase 5 — Full Platform
-- Web dashboard (FastAPI + React)
-- Live network map (terminal rendering)
-- PostgreSQL team backend
-- Tauri desktop GUI
-- Fine-tuned security-domain model (LoRA on Llama 3.1)
+### Phase 5 — Full Platform (In Progress)
+- [x] Web dashboard — FastAPI team server with SSE, operator conflict detection, loot/notes sync
+- [x] Live network map — terminal network topology widget (Textual)
+- [x] PostgreSQL team backend — drop-in replacement for SQLite (`--db postgresql://...`)
+- [x] Tauri desktop GUI scaffold — cross-platform desktop wrapper
+- [x] Multi-provider AI backends — Anthropic, Groq, OpenRouter, Together.ai, Local SpectreBot
+- [x] SpectreBot model management — `snet model list/download/status/remove`
+- [x] Training pipeline — `snet train export` + Kaggle fine-tune notebook
+- [ ] Fine-tuned SpectreBot weights — LoRA adapter trained on pentest session data
 
 ---
 
@@ -228,9 +231,12 @@ SpectreNet's AI mode requires **one** of the following:
 | Option | Cost | Setup |
 |---|---|---|
 | **Ollama** (local) | Free | Install from [ollama.com](https://ollama.com), then `ollama pull llama3.1:70b` |
-| **DeepSeek API** | Free tier available | Sign up at [platform.deepseek.com](https://platform.deepseek.com) |
-| **Qwen / other OpenAI-spec API** | Varies | Any OpenAI-compatible endpoint works |
+| **Anthropic** (Claude) | Pay-per-token | `snet config set-key anthropic sk-ant-...` |
+| **Groq** | Free tier available | `snet config set-key groq gsk_...` |
+| **OpenRouter** | Pay-per-token, many models | `snet config set-key openrouter sk-or-...` |
+| **DeepSeek / OpenAI-spec** | Free tier / pay-per-token | Any OpenAI-compatible endpoint works |
 | **LM Studio / vLLM** (local) | Free | Point SpectreNet at your local server URL |
+| **Local SpectreBot** | Free (after download) | `snet model download spectrenet-7b` |
 
 Classic mode has **no AI requirement** — it works fully offline with just the external tools above.
 
@@ -253,11 +259,15 @@ SpectreNet connects automatically. If it's not running, MSF features are silentl
 git clone https://github.com/BroJustLeaveMeAlone/SpectreNet.git
 cd SpectreNet
 
-# Install
+# Install core
 pip install -e .
 
-# Optional: Metasploit bridge
-pip install -e ".[msf]"
+# Optional extras
+pip install -e ".[msf]"       # Metasploit bridge
+pip install -e ".[server]"    # Team collaboration server (FastAPI + uvicorn)
+pip install -e ".[ai]"        # Anthropic + Groq SDK backends
+pip install -e ".[vector]"    # Semantic CVE search (ChromaDB)
+pip install -e ".[training]"  # SpectreBot fine-tuning (transformers, peft)
 
 # Launch
 spectrenet
@@ -275,12 +285,35 @@ ollama pull llama3.1:70b
 spectrenet
 ```
 
-### AI mode with a free API (e.g. DeepSeek)
+### AI mode with a cloud API
 
 ```bash
+# Set your key once — saved to config.yaml
+snet config set-key anthropic sk-ant-...
+snet config set-key groq gsk_...
+snet config set-key openrouter sk-or-...
+
+# Show all configured providers
+snet config show-providers
+
+# Then launch — choose the provider from the startup screen
 spectrenet
-# Press 2 at startup → select "OpenAI-compatible"
-# Enter: https://api.deepseek.com  /  deepseek-chat  /  your-api-key
+```
+
+### SpectreBot local model
+
+```bash
+# List available fine-tuned SpectreBot adapters
+snet model list
+
+# Download the recommended 7B adapter (~4 GB)
+snet model download spectrenet-7b
+
+# Check status and disk usage
+snet model status
+
+# Launch with SpectreBot
+spectrenet --model local
 ```
 
 ---
@@ -291,13 +324,33 @@ Create `config.yaml` in the working directory to override defaults:
 
 ```yaml
 operator_name: alice           # shown in the audit log
-model_backend: ollama          # ollama | openai | none
+model_backend: ollama          # ollama | openai | anthropic | groq | openrouter | spectre | local | none
 model_name: llama3.1:70b
+
+# Ollama (local)
 ollama_url: http://localhost:11434
-openai_base_url: https://api.deepseek.com  # or http://localhost:1234 for LM Studio
+
+# OpenAI-compatible (OpenAI, DeepSeek, LM Studio, vLLM)
+openai_base_url: https://api.deepseek.com
 openai_api_key: sk-...
-storage_backend: sqlite
-db_path: spectrenet.db
+
+# Cloud providers (set keys via: snet config set-key <provider> <key>)
+anthropic_api_key: sk-ant-...
+groq_api_key: gsk_...
+openrouter_api_key: sk-or-...
+together_api_key: ...           # for hosted SpectreBot fine-tune
+
+# Local SpectreBot adapter (downloaded via: snet model download spectrenet-7b)
+local_model_name: spectrenet-7b
+
+# Storage
+storage_backend: sqlite         # sqlite | postgresql
+db_path: spectrenet.db          # or postgresql://user:pass@host/db
+
+# Engagement scope
+scope: []                       # e.g. ["10.0.0.0/24", "192.168.1.0/24"]
+scope_strict: false             # true = block any target outside scope
+
 server_port: 7777
 log_level: INFO
 ```
