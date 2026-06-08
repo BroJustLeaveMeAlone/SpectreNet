@@ -146,7 +146,7 @@ def main() -> None:
             builder  = DatasetBuilder()
             output   = Path(args.output)
             n_train, n_val = builder.build(output, db_paths=db_paths)
-            print(f"✓ Exported {n_train} training + {n_val} validation examples")
+            print(f"[OK] Exported {n_train} training + {n_val} validation examples")
             print(f"  Train: {output.with_suffix('.train.jsonl')}")
             print(f"  Val:   {output.with_suffix('.val.jsonl')}")
             print()
@@ -302,13 +302,13 @@ def _set_api_key(config_path: Path, provider: str, key: str) -> None:
     data[field] = key
     config_path.write_text(yaml.dump(data, default_flow_style=False))
     masked = key[:4] + "…" + key[-4:] if len(key) > 8 else "****"
-    print(f"✓ {provider} key saved to {config_path} ({masked})")
+    print(f"[OK] {provider} key saved to {config_path} ({masked})")
 
 
 def _show_providers(config_path: Path) -> None:
     cfg = load_config(config_path)
     print("\nConfigured Providers")
-    print("─" * 52)
+    print("-" * 52)
     rows = [
         ("Ollama",      "ollama_url",          cfg.ollama_url),
         ("OpenAI",      "openai_api_key",       cfg.openai_api_key),
@@ -321,9 +321,9 @@ def _show_providers(config_path: Path) -> None:
     for label, field, val in rows:
         if val:
             masked = val[:4] + "…" + val[-4:] if len(val) > 8 else val
-            status = f"✓ configured ({masked})"
+            status = f"[OK] configured ({masked})"
         else:
-            status = "─ not configured"
+            status = "[--] not configured"
         print(f"  {label:<24} {status}")
     print()
     print("  Set a key: snet config set-key <provider> <key>")

@@ -43,3 +43,6 @@ review_output.txt
 .spectrenet_loot.json
 .spectrenet_cve.db
 spectrenet_report*.md
+
+# Generated training data (re-create with: snet train export)
+training_data.*.jsonl
