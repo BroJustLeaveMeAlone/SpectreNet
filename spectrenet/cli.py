@@ -16,8 +16,14 @@ def _build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=(
             "Subcommands:\n"
-            "  spectrenet            Launch interactive TUI\n"
-            "  spectrenet server     Start the team collaboration server\n"
+            "  spectrenet                  Launch interactive TUI\n"
+            "  spectrenet tools            Check which external tools are installed\n"
+            "  spectrenet tools install    Print install commands for missing tools\n"
+            "  spectrenet server           Start the team collaboration server\n"
+            "  spectrenet model list       List available SpectreBot adapters\n"
+            "  spectrenet train export     Export session logs as fine-tuning data\n"
+            "  spectrenet train eval       Compare two model backends on pentest prompts\n"
+            "  spectrenet config set-key   Save an API key to config.yaml\n"
             "\n"
             "Use --model to skip the startup selector for scripting or quick re-launch."
         ),
@@ -43,6 +49,11 @@ def _build_parser() -> argparse.ArgumentParser:
                         help="PostgreSQL DSN (postgresql://user:pass@host/db) — overrides SQLite")
 
     sub = parser.add_subparsers(dest="subcommand")
+
+    tls = sub.add_parser("tools", help="Check tool availability and get install commands")
+    tls_sub = tls.add_subparsers(dest="tools_cmd")
+    tls_sub.add_parser("status",  help="Show all tools and their availability (default)")
+    tls_sub.add_parser("install", help="Print install commands for every missing tool")
 
     srv = sub.add_parser("server", help="Start the team collaboration server")
     srv.add_argument("--host", default="0.0.0.0")
@@ -89,6 +100,15 @@ def _build_parser() -> argparse.ArgumentParser:
 def main() -> None:
     parser = _build_parser()
     args   = parser.parse_args()
+
+    # ── snet tools ─────────────────────────────────────────────────────────────
+    if args.subcommand == "tools":
+        from spectrenet.tools_installer import cmd_tools_status, cmd_tools_install
+        if getattr(args, "tools_cmd", None) == "install":
+            cmd_tools_install()
+        else:
+            cmd_tools_status()
+        return
 
     # ── Team server ────────────────────────────────────────────────────────────
     if args.subcommand == "server":

@@ -27,6 +27,7 @@ _DIRECT_TOOLS = {
 _COMPLETIONS = sorted(_DIRECT_TOOLS | {
     "goal", "stop", "explain", "scan", "loot", "scope", "report", "postex",
     "note", "workspace", "classic", "help", "clear", "quit",
+    "tools", "tools install",
     "scan quick", "scan full", "scan stealth", "scan web", "scan udp", "scan vuln", "scan os",
     "loot add", "loot clear", "scope add", "scope strict",
     "report html",
@@ -286,6 +287,10 @@ class AIScreen(Screen):
 
         if verb == "postex":
             self._handle_postex(parts[1:])
+            return
+
+        if verb == "tools":
+            self._show_tools(install_hint=bool(parts[1:] and parts[1] == "install"))
             return
 
         if verb == "stop":
@@ -599,6 +604,36 @@ class AIScreen(Screen):
             self.feed.write(
                 f"[{GREY}]No cheat sheet for [bold]{tool}[/]. "
                 f"Available: [bold {CYAN}]{available}[/][/]"
+            )
+
+    # ------------------------------------------------------------------
+    # Tools status
+    # ------------------------------------------------------------------
+
+    def _show_tools(self, install_hint: bool = False) -> None:
+        if install_hint:
+            self.feed.write(
+                f"\n[bold {CYAN}]Tool Install Commands[/]\n"
+                f"  [{GREY}]Run this in your terminal (outside SpectreNet):[/]\n"
+                f"\n"
+                f"  [bold {WHITE}]snet tools install[/]    [dim]# print install commands for all missing tools[/]\n"
+                f"  [bold {WHITE}]snet tools[/]             [dim]# show full tool status[/]\n"
+            )
+            return
+        from spectrenet.tools_installer import _TOOLS, _is_available
+        self.feed.write(f"\n[bold {CYAN}]Tool Status[/]")
+        missing = []
+        for t in _TOOLS:
+            ok = _is_available(t)
+            if ok:
+                self.feed.write(f"  [{SUCCESS}]OK[/]  [bold {WHITE}]{t.name:<14}[/]")
+            else:
+                self.feed.write(f"  [{GREY}]--[/]  [{GREY}]{t.name:<14}[/] [dim]not on PATH[/]")
+                missing.append(t.name)
+        if missing:
+            self.feed.write(
+                f"\n  [{GREY}]{len(missing)} tool(s) missing -- "
+                f"run [bold]snet tools install[/] in a terminal for install commands.[/]"
             )
 
     # ------------------------------------------------------------------

@@ -93,13 +93,17 @@ _CLASSIC_HELP = f"""\
     3. Open [dim]notebooks/spectrenet_finetune.ipynb[/] on Kaggle (free T4 GPU)
     4. Run all cells → download adapter → [dim]snet model status[/]
 
+[bold {CYAN}]── TOOLS & SETUP ─────────────────────────────────────────────────────────[/]
+  [bold {WHITE}]tools[/]                                Show tool availability (OK / --)
+  [bold {WHITE}]tools install[/]                        Show install commands for missing tools
+  [dim](Full install commands also available outside SpectreNet: snet tools install)[/]
+
 [bold {CYAN}]── NAVIGATION ────────────────────────────────────────────────────────────[/]
   [bold {WHITE}]↑ / ↓[/]                                Command history navigation
   [bold {WHITE}]F1[/]  [dim]/ help[/]                         This screen
   [bold {WHITE}]F2[/]                                   Toggle host/findings panel
   [bold {WHITE}]F3[/]                                   Toggle network map
   [bold {WHITE}]Ctrl+L[/]  [dim]/ clear[/]                    Clear output feed
-  [bold {WHITE}]tools[/]                                Show registered tool status
   [bold {WHITE}]quit[/]  [dim]/ exit[/]                        Exit SpectreNet
 """
 
@@ -147,6 +151,11 @@ _AI_HELP = f"""\
     Providers: ollama · openai · anthropic · groq · openrouter · spectre · local
     SpectreBot: spectrenet-mini (3.8B)  spectrenet-7b (7B)  spectrenet-8b (8B)
     See [bold {WHITE}]help models[/] for full setup guide (config keys, Kaggle training)
+
+[bold {CYAN}]── TOOLS & SETUP ─────────────────────────────────────────────────────────[/]
+  [bold {WHITE}]tools[/]                   Show tool availability (OK / --)
+  [bold {WHITE}]tools install[/]           Show install commands for missing tools
+  [dim](Full install commands also available outside SpectreNet: snet tools install)[/]
 
 [bold {CYAN}]── NAVIGATION ────────────────────────────────────────────────────────────[/]
   [bold {WHITE}]↑ / ↓[/]      History    [bold {WHITE}]classic[/]  Back to Classic mode

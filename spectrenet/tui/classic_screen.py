@@ -27,7 +27,7 @@ _DIRECT_TOOLS = {
 
 _COMPLETIONS = sorted(_DIRECT_TOOLS | {
     "scan", "msf", "loot", "scope", "report", "note", "workspace",
-    "sessions", "session", "postex", "explain", "ai", "tools", "help",
+    "sessions", "session", "postex", "explain", "ai", "tools", "tools install", "help",
     "clear", "quit", "exit",
     "providers",
     "model list", "model download", "model status", "model remove",
@@ -340,7 +340,10 @@ class ClassicScreen(Screen):
 
         # tools / wrappers
         if verb in ("tools", "wrappers"):
-            self._show_tools()
+            if rest and rest[0] == "install":
+                self._show_tools_install_hint()
+            else:
+                self._show_tools()
             return
 
         # sessions
@@ -864,11 +867,29 @@ class ClassicScreen(Screen):
     # ------------------------------------------------------------------
 
     def _show_tools(self) -> None:
-        self.feed.write(f"\n[bold {CYAN}]Registered Tools[/]")
+        self.feed.write(f"\n[bold {CYAN}]Tool Status[/]")
+        missing = []
         for name in sorted(self._registry._wrappers.keys()):
             w = self._registry._wrappers[name]
-            status = f"[{SUCCESS}]available[/]" if w.is_available() else f"[{GREY}]not on PATH[/]"
-            self.feed.write(f"  [bold {WHITE}]{name:<12}[/] {status}")
+            if w.is_available():
+                self.feed.write(f"  [{SUCCESS}]OK[/]  [bold {WHITE}]{name:<14}[/]")
+            else:
+                self.feed.write(f"  [{GREY}]--[/]  [{GREY}]{name:<14}[/] [dim]not on PATH[/]")
+                missing.append(name)
+        if missing:
+            self.feed.write(
+                f"\n  [{GREY}]{len(missing)} tool(s) missing — "
+                f"run [bold]snet tools install[/] in a terminal for install commands.[/]"
+            )
+
+    def _show_tools_install_hint(self) -> None:
+        self.feed.write(
+            f"\n[bold {CYAN}]Tool Install Commands[/]\n"
+            f"  [{GREY}]Run this in your terminal (outside SpectreNet):[/]\n"
+            f"\n"
+            f"  [bold {WHITE}]snet tools install[/]    [dim]# print install commands for all missing tools[/]\n"
+            f"  [bold {WHITE}]snet tools[/]             [dim]# show full tool status[/]\n"
+        )
 
     def _show_sessions(self) -> None:
         if self._msf_bridge is None or not self._msf_bridge.is_connected():

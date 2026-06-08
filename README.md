@@ -167,13 +167,13 @@ Phase 5 — Full Platform            █████████░  In Progress
 
 ## Requirements
 
-SpectreNet runs without any external tools installed — the TUI and all Python logic work out of the box. External tools unlock specific capabilities as listed below.
+> **No AI required.** Classic mode works fully offline with just the external tools below — no API keys, no local GPU, no model downloads. AI is an optional force-multiplier on top of a complete pentest framework.
 
 ### System
 
 | Requirement | Version | Notes |
 |---|---|---|
-| **OS** | Linux, macOS, Windows | Linux recommended for full tool support |
+| **OS** | Linux, macOS, Windows | Linux recommended — most tools have best support there |
 | **Python** | 3.11+ | |
 | **pip** | any recent | Comes with Python |
 
@@ -188,40 +188,88 @@ Installed automatically when you run `pip install -e .`:
 | `pyyaml` ≥ 6.0 | Config file parsing |
 | `httpx` ≥ 0.27 | HTTP client for AI backends |
 
-Optional Python package for Metasploit integration:
+Optional Python packages:
 
 ```bash
-pip install pymetasploit3        # enables msf console mode and session management
+pip install -e ".[msf]"       # pymetasploit3 — MSF console mode and session management
+pip install -e ".[server]"    # fastapi + uvicorn — team collaboration server
+pip install -e ".[ai]"        # anthropic + groq SDK backends
+pip install -e ".[vector]"    # chromadb — semantic CVE search
+pip install -e ".[training]"  # transformers + peft — SpectreBot fine-tuning
 ```
 
 ### External Security Tools
 
-All tools are **optional** — SpectreNet runs without them and shows `✗` next to unavailable tools in the status bar. Install only what you need.
+SpectreNet runs without any external tools installed — the TUI and all Python logic work out of the box. External tools unlock specific capabilities. SpectreNet shows `✓` / `✗` next to every tool at startup.
+
+**Check what you have installed:**
+```bash
+snet tools           # show status of all 15 tools
+snet tools install   # print install commands for everything that's missing
+```
+
+#### Recon
 
 | Tool | What it unlocks | Install |
 |---|---|---|
-| **nmap** | Network scanning, port/service/OS detection | [nmap.org/download](https://nmap.org/download.html) |
-| **masscan** | High-speed port scanning across large ranges | [github.com/robertdavidgraham/masscan](https://github.com/robertdavidgraham/masscan) |
-| **sqlmap** | Automated SQL injection detection and exploitation | [sqlmap.org](https://sqlmap.org) |
-| **nikto** | Web server vulnerability scanning | [github.com/sullo/nikto](https://github.com/sullo/nikto) |
-| **nuclei** | Template-based CVE and vulnerability scanning | [github.com/projectdiscovery/nuclei](https://github.com/projectdiscovery/nuclei) |
-| **gobuster** | Directory and DNS brute-forcing | [github.com/OJ/gobuster](https://github.com/OJ/gobuster) |
-| **hydra** | Login brute-force (SSH, FTP, HTTP, SMB...) | [github.com/vanhauser-thc/thc-hydra](https://github.com/vanhauser-thc/thc-hydra) |
-| **msfvenom** | Payload generation (part of Metasploit) | see below |
-| **Metasploit Framework** | MSF console mode, exploit modules, sessions | [metasploit.com](https://www.metasploit.com/download) |
+| **nmap** | Network scanning, port/service/OS detection | `apt install nmap` · `brew install nmap` |
+| **masscan** | High-speed port scanning across large ranges | `apt install masscan` · `brew install masscan` |
+| **subfinder** | Passive subdomain enumeration | `apt install subfinder` · [go install](https://github.com/projectdiscovery/subfinder) |
+| **shodan** ¹ | Shodan host intelligence lookup | `pip install shodan` then `shodan init <key>` |
 
-**Quick install on Kali / Parrot / Debian:**
+#### Web
+
+| Tool | What it unlocks | Install |
+|---|---|---|
+| **nikto** | Web server vulnerability scanning | `apt install nikto` · `brew install nikto` |
+| **nuclei** | Template-based CVE and vulnerability scanning | `apt install nuclei` · [go install](https://github.com/projectdiscovery/nuclei) |
+| **gobuster** | Directory and DNS brute-forcing | `apt install gobuster` · `brew install gobuster` |
+| **sqlmap** | Automated SQL injection detection | `apt install sqlmap` · `pip install sqlmap` |
+| **whatweb** | Web technology fingerprinting | `apt install whatweb` · `gem install whatweb` |
+
+#### SMB / Active Directory
+
+| Tool | What it unlocks | Install |
+|---|---|---|
+| **enum4linux** | SMB/NetBIOS enumeration | `apt install enum4linux` (Linux/macOS) |
+| **crackmapexec** | SMB/AD/SSH credential testing and lateral movement ² | `apt install crackmapexec` · `pip install netexec` |
+
+#### Exploitation
+
+| Tool | What it unlocks | Install |
+|---|---|---|
+| **hydra** | Login brute-force (SSH, FTP, HTTP, SMB…) | `apt install hydra` · `brew install hydra` |
+| **searchsploit** | Offline exploit database search | `apt install exploitdb` · `brew install exploitdb` |
+| **msfvenom** | Payload generation | Included with Metasploit Framework |
+| **Metasploit Framework** | MSF console, exploit modules, sessions | `apt install metasploit-framework` |
+
+> ¹ **Shodan** requires a free API key from [shodan.io](https://shodan.io). After `pip install shodan` run `shodan init <your-key>`.
+>
+> ² **crackmapexec** — SpectreNet accepts any of: `netexec` (nxc), `crackmapexec` (cme). The modern replacement is `netexec`: `pip install netexec`.
+
+**Quick install — Kali / Parrot / Debian / Ubuntu:**
 ```bash
-sudo apt install nmap masscan sqlmap nikto gobuster hydra metasploit-framework
-# nuclei (Go binary — install separately)
+sudo apt install -y nmap masscan sqlmap nikto gobuster hydra \
+    enum4linux whatweb exploitdb crackmapexec metasploit-framework
+
+# Go-based tools (requires Go: https://go.dev/dl/)
 go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest
+go install -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest
+
+# Python tools
+pip install shodan netexec
+shodan init <your-api-key>
 ```
 
-**macOS (Homebrew):**
+**Quick install — macOS (Homebrew):**
 ```bash
-brew install nmap masscan sqlmap nikto gobuster hydra
+brew install nmap masscan sqlmap nikto gobuster hydra exploitdb subfinder nuclei
 brew install --cask metasploit
-go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest
+gem install whatweb
+
+# Python tools
+pip install shodan netexec
+shodan init <your-api-key>
 ```
 
 ### AI Backend (optional)
