@@ -93,6 +93,17 @@ _CLASSIC_HELP = f"""\
     3. Open [dim]notebooks/spectrenet_finetune.ipynb[/] on Kaggle (free T4 GPU)
     4. Run all cells → download adapter → [dim]snet model status[/]
 
+[bold {CYAN}]── GUIDED WORKFLOWS ──────────────────────────────────────────────────────[/]
+  [bold {WHITE}]guide[/]                                List all guided workflows
+  [bold {WHITE}]guide web[/]                            External web app pentest (6 steps)
+  [bold {WHITE}]guide internal[/]                       Internal network sweep (7 steps)
+  [bold {WHITE}]guide host[/]                           Single host full compromise (7 steps)
+  [bold {WHITE}]guide ad[/]                             Active Directory attack chain (7 steps)
+  [bold {WHITE}]guide recon[/]                          Passive external recon (6 steps)
+  [bold {WHITE}]guide next[/]  [bold {WHITE}]guide back[/]  [bold {WHITE}]guide stop[/]   Navigate / close the guide panel
+  [dim]Each step shows: what to do, exact command with flags explained,
+  what to look for in output, and a pro tip.[/]
+
 [bold {CYAN}]── TOOLS & SETUP ─────────────────────────────────────────────────────────[/]
   [bold {WHITE}]tools[/]                                Show tool availability (OK / --)
   [bold {WHITE}]tools install[/]                        Show install commands for missing tools

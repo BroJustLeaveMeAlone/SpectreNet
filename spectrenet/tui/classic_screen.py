@@ -10,6 +10,7 @@ from spectrenet import APP_NAME, __version__
 from spectrenet.theme import CYAN, CYAN_DIM, NAVY, NAVY_DEEP, NAVY_LIGHT, GREY, WHITE, SUCCESS, WARNING
 from spectrenet.tui.findings_panel import FindingsPanel
 from spectrenet.tui.network_map import NetworkMapWidget
+from spectrenet.tui.guided_workflows import GuidePanel, WORKFLOWS
 from spectrenet.tui.cheat_sheets import CHEATSHEETS, SCAN_PROFILES, parse_nmap_text, suggest_followups
 from spectrenet.workspace import Workspace
 from spectrenet.loot import LootVault
@@ -41,6 +42,8 @@ _COMPLETIONS = sorted(_DIRECT_TOOLS | {
     "help nuclei", "help gobuster", "help hydra", "help msfconsole",
     "help enum4linux", "help whatweb", "help searchsploit", "help crackmapexec",
     "help shodan", "help subfinder", "help models",
+    "guide", "guide web", "guide internal", "guide host", "guide ad", "guide recon",
+    "guide next", "guide back", "guide stop",
 })
 
 
@@ -79,6 +82,14 @@ class ClassicScreen(Screen):
     }}
     #main-area {{
         height: 1fr;
+    }}
+    #guide-panel {{
+        width: 46;
+        background: {NAVY};
+        border-right: solid {NAVY_LIGHT};
+        padding: 1 2;
+        display: none;
+        overflow-y: auto;
     }}
     #feed {{
         border: none;
@@ -140,8 +151,10 @@ class ClassicScreen(Screen):
             getattr(config, "scope", None) or [],
             getattr(config, "scope_strict", False),
         )
-        self._enricher   = CVEEnricher()
-        self._post_ex    = PostExEngine(loot=self._loot)
+        self._enricher        = CVEEnricher()
+        self._post_ex         = PostExEngine(loot=self._loot)
+        self._active_workflow = None   # type: ignore[assignment]
+        self._guide_step      = 0
 
     # ------------------------------------------------------------------
     # Layout
@@ -150,6 +163,8 @@ class ClassicScreen(Screen):
     def compose(self) -> ComposeResult:
         yield Static("", id="statusbar")
         with Horizontal(id="main-area"):
+            self.guide_panel = GuidePanel(id="guide-panel")
+            yield self.guide_panel
             self.feed = RichLog(highlight=True, markup=True, id="feed", wrap=True)
             yield self.feed
             self.findings_panel = FindingsPanel(id="findings")
@@ -336,6 +351,11 @@ class ClassicScreen(Screen):
         # post-exploitation engine
         if verb == "postex":
             self._handle_postex(rest)
+            return
+
+        # guided workflows
+        if verb == "guide":
+            self._handle_guide(rest)
             return
 
         # tools / wrappers
@@ -772,6 +792,121 @@ class ClassicScreen(Screen):
             return
 
         self.feed.write(f"[{GREY}]postex sessions  |  postex register <host> [platform] [user]  |  postex enum <id>  |  postex pivot <id>[/]")
+
+    # ------------------------------------------------------------------
+    # Guided workflows
+    # ------------------------------------------------------------------
+
+    def _handle_guide(self, rest: list[str]) -> None:
+        if not rest:
+            self._show_guide_list()
+            return
+
+        sub = rest[0].lower()
+
+        if sub == "next":
+            if self._active_workflow is None:
+                self.feed.write(
+                    f"[{GREY}]No guide running. Start one with [bold {CYAN}]guide <name>[/].[/]"
+                )
+                return
+            total = len(self._active_workflow.steps)
+            if self._guide_step + 1 >= total:
+                self.feed.write(
+                    f"[bold {SUCCESS}]◈ Workflow complete![/]  "
+                    f"[{GREY}]All {total} steps finished. Type [bold {CYAN}]guide stop[/] to close the panel.[/]"
+                )
+            else:
+                self._guide_step += 1
+                self._refresh_guide_panel()
+                step = self._active_workflow.steps[self._guide_step]
+                self.feed.write(
+                    f"[{CYAN}]◈ Step {self._guide_step + 1}/{total}:[/] "
+                    f"[bold {WHITE}]{step.title}[/]  "
+                    f"[{GREY}](guide panel updated)[/]"
+                )
+            return
+
+        if sub == "back":
+            if self._active_workflow is None:
+                return
+            if self._guide_step > 0:
+                self._guide_step -= 1
+                self._refresh_guide_panel()
+                step = self._active_workflow.steps[self._guide_step]
+                total = len(self._active_workflow.steps)
+                self.feed.write(
+                    f"[{CYAN}]◈ Step {self._guide_step + 1}/{total}:[/] "
+                    f"[bold {WHITE}]{step.title}[/]"
+                )
+            else:
+                self.feed.write(f"[{GREY}]Already on step 1.[/]")
+            return
+
+        if sub == "stop":
+            self._active_workflow = None
+            self._guide_step      = 0
+            self.guide_panel.display = False
+            self.feed.write(f"[{GREY}]Guide closed.[/]")
+            return
+
+        # Start a named workflow
+        wf = WORKFLOWS.get(sub)
+        if wf is None:
+            available = "  ".join(
+                f"[bold {CYAN}]guide {wid}[/]" for wid in WORKFLOWS
+            )
+            self.feed.write(
+                f"[{GREY}]Unknown guide '[bold]{sub}[/]'. Available:[/]\n"
+                f"  {available}"
+            )
+            return
+
+        self._active_workflow = wf
+        self._guide_step      = 0
+        self._refresh_guide_panel()
+        self.guide_panel.display = True
+
+        step  = wf.steps[0]
+        total = len(wf.steps)
+        self.feed.write(
+            f"\n[bold {CYAN}]◈ Guided Workflow:[/] [bold {WHITE}]{wf.name}[/]  "
+            f"[{GREY}]{wf.difficulty}  ·  {total} steps[/]"
+        )
+        self.feed.write(f"[{GREY}]{wf.description}[/]")
+        self.feed.write(
+            f"[{GREY}]Step 1/{total}: [bold {WHITE}]{step.title}[/]  "
+            f"— full details in the guide panel on the left.[/]"
+        )
+        self.feed.write(
+            f"[{GREY}]  [bold {CYAN}]guide next[/]   advance a step   "
+            f"[bold {CYAN}]guide back[/]  go back   "
+            f"[bold {CYAN}]guide stop[/]  close panel[/]\n"
+        )
+
+    def _refresh_guide_panel(self) -> None:
+        if self._active_workflow is not None:
+            self.guide_panel.render_step(self._active_workflow, self._guide_step)
+
+    def _show_guide_list(self) -> None:
+        self.feed.write(f"\n[bold {CYAN}]◈ Guided Workflows[/]")
+        self.feed.write(
+            f"[{GREY}]Step-by-step pentest playbooks with exact commands, "
+            f"flag explanations, and output indicators.[/]\n"
+        )
+        for wf in WORKFLOWS.values():
+            self.feed.write(
+                f"  [bold {CYAN}]guide {wf.id:<10}[/] "
+                f"[{GREY}]{wf.difficulty:<14}[/] "
+                f"[bold {WHITE}]{wf.name}[/]"
+            )
+            self.feed.write(f"  [{GREY}]  {wf.description}[/]")
+            self.feed.write("")
+        self.feed.write(
+            f"[{GREY}]  Start: [bold {CYAN}]guide web[/]   "
+            f"Navigate: [bold {CYAN}]guide next[/] / [bold {CYAN}]guide back[/]   "
+            f"Exit: [bold {CYAN}]guide stop[/][/]\n"
+        )
 
     # ------------------------------------------------------------------
     # Model manager
