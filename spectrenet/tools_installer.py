@@ -77,7 +77,7 @@ _TOOLS: list[_Tool] = [
           notes="Included with Metasploit Framework"),
 
     # Metasploit
-    _Tool("metasploit",   "MSF console, exploit modules, session management",
+    _Tool("msfconsole",   "MSF console, exploit modules, session management",
           "msfconsole",   apt="metasploit-framework", brew="metasploit",
           notes="Start RPC before launching SpectreNet: msfrpcd -P msf -S false"),
 ]
@@ -138,7 +138,7 @@ def cmd_tools_status() -> None:
         ("Recon",         ["nmap", "masscan", "subfinder", "shodan"]),
         ("Web",           ["nikto", "nuclei", "gobuster", "sqlmap", "whatweb"]),
         ("SMB / AD",      ["enum4linux", "crackmapexec"]),
-        ("Exploitation",  ["hydra", "searchsploit", "msfvenom", "metasploit"]),
+        ("Exploitation",  ["hydra", "searchsploit", "msfvenom", "msfconsole"]),
     ]
 
     for cat_name, names in categories:
@@ -225,7 +225,7 @@ def cmd_tools_install() -> None:
         for t in api_tools:
             print(f"  {t.name:<16}  {t.notes}")
 
-    msf_missing = next((t for t in missing if t.name == "metasploit"), None)
+    msf_missing = next((t for t in missing if t.name == "msfconsole"), None)
     if msf_missing:
         print(f"\n  # After installing Metasploit -- start the RPC daemon:")
         print(f"  msfrpcd -P msf -S false")
