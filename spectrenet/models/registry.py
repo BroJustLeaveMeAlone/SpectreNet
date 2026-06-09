@@ -36,13 +36,24 @@ SPECTRENET_MODELS: dict[str, dict] = {
         "adapter_size_mb": 320,
         "base_size_gb":    5.0,
         "min_vram_gb":     10,
-        "description":     "8B Llama 3.1 — highest quality SpectreBot. "
-                           "Requires 10 GB+ VRAM or a high-RAM CPU setup.",
+        "description":     "8B Llama 3.1 — solid quality, lower VRAM than 12b. "
+                           "Requires 10 GB+ VRAM.",
         "kaggle_base":     "meta-llama/llama-3.1-8b-instruct",
+    },
+    "spectrenet-12b": {
+        "hf_repo":         "SpectreNet/spectrenet-12b",
+        "base_model":      "mistralai/Mistral-Nemo-Instruct-2407",
+        "adapter_size_mb": 420,
+        "base_size_gb":    7.0,
+        "min_vram_gb":     14,
+        "description":     "12B Mistral-Nemo — recommended. Best reasoning and "
+                           "JSON output quality. Trains free on Kaggle T4 x2. "
+                           "Requires 14 GB+ VRAM to run.",
+        "kaggle_base":     "mistralai/mistral-nemo-instruct-2407",
     },
 }
 
-DEFAULT_MODEL = "spectrenet-7b"
+DEFAULT_MODEL = "spectrenet-12b"
 
 
 def list_models() -> list[dict]:

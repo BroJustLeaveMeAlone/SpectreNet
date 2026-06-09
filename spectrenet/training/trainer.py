@@ -7,14 +7,20 @@ Generated notebook: notebooks/spectrenet_finetune.ipynb
 Usage (standalone):
     python -m spectrenet.training.trainer \\
         --dataset training_data.train.jsonl \\
-        --model-size 7b \\
+        --model-size 12b \\
         --output ./spectrenet-adapter \\
-        --hf-repo YourOrg/spectrenet-7b   # optional: push to HuggingFace Hub
+        --hf-repo YourOrg/spectrenet-12b   # optional: push to HuggingFace Hub
 
 Model sizes:
-    mini  → microsoft/Phi-3-mini-4k-instruct    (3.8B)
-    7b    → mistralai/Mistral-7B-Instruct-v0.3  (7B)
-    8b    → meta-llama/Llama-3.1-8B-Instruct    (8B)
+    mini  → microsoft/Phi-3-mini-4k-instruct        (3.8B  — ~4 GB VRAM)
+    7b    → mistralai/Mistral-7B-Instruct-v0.3      (7B    — ~8 GB VRAM)
+    8b    → meta-llama/Llama-3.1-8B-Instruct        (8B    — ~10 GB VRAM)
+    12b   → mistralai/Mistral-Nemo-Instruct-2407    (12B   — ~14 GB VRAM, recommended)
+
+Hardware guide:
+    Kaggle free (T4 x2, 32 GB): all sizes including 12b
+    Single T4 (16 GB):          mini, 7b, 8b
+    Single A100 (40 GB):        all sizes including 70B class with QLoRA
 """
 from __future__ import annotations
 
@@ -29,6 +35,7 @@ BASE_MODELS = {
     "mini": "microsoft/Phi-3-mini-4k-instruct",
     "7b":   "mistralai/Mistral-7B-Instruct-v0.3",
     "8b":   "meta-llama/Llama-3.1-8B-Instruct",
+    "12b":  "mistralai/Mistral-Nemo-Instruct-2407",
 }
 
 LORA_CONFIG = {
@@ -41,16 +48,26 @@ LORA_CONFIG = {
 }
 
 TRAINING_ARGS = {
-    "num_train_epochs":          3,
+    "num_train_epochs":            3,
     "per_device_train_batch_size": 2,
     "gradient_accumulation_steps": 4,
-    "learning_rate":             2e-4,
-    "fp16":                      True,
-    "logging_steps":             10,
-    "save_steps":                100,
-    "warmup_ratio":              0.03,
-    "lr_scheduler_type":         "cosine",
-    "report_to":                 "none",
+    "learning_rate":               2e-4,
+    "fp16":                        True,
+    "logging_steps":               10,
+    "save_steps":                  100,
+    "warmup_ratio":                0.03,
+    "lr_scheduler_type":           "cosine",
+    "report_to":                   "none",
+}
+
+# Per-size overrides applied on top of TRAINING_ARGS.
+# 12b reduces batch size and doubles accumulation steps to fit T4 VRAM
+# while keeping the same effective batch size (1 * 8 = 2 * 4 = 8).
+TRAINING_ARGS_OVERRIDES: dict[str, dict] = {
+    "12b": {
+        "per_device_train_batch_size": 1,
+        "gradient_accumulation_steps": 8,
+    },
 }
 
 
@@ -147,9 +164,13 @@ def train(
     model.print_trainable_parameters()
 
     # ── Training ──────────────────────────────────────────────────────────────
+    effective_args = {**TRAINING_ARGS, **TRAINING_ARGS_OVERRIDES.get(model_size, {})}
+    if effective_args != TRAINING_ARGS:
+        log.info("Applied training overrides for %s: %s",
+                 model_size, TRAINING_ARGS_OVERRIDES[model_size])
     training_args = TrainingArguments(
         output_dir=str(output_dir),
-        **TRAINING_ARGS,
+        **effective_args,
     )
 
     trainer = SFTTrainer(
@@ -182,8 +203,8 @@ def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     p = argparse.ArgumentParser(description="SpectreBot QLoRA fine-tuning")
     p.add_argument("--dataset",    required=True, type=Path, help="Path to .train.jsonl")
-    p.add_argument("--model-size", default="7b", choices=list(BASE_MODELS),
-                   help="mini | 7b | 8b (default: 7b)")
+    p.add_argument("--model-size", default="12b", choices=list(BASE_MODELS),
+                   help="mini | 7b | 8b | 12b (default: 12b)")
     p.add_argument("--output",     default=Path("spectrenet-adapter"), type=Path)
     p.add_argument("--hf-repo",    default=None, help="HuggingFace repo to push adapter (optional)")
     p.add_argument("--hf-token",   default=None, help="HuggingFace token for push")

@@ -83,9 +83,10 @@ _CLASSIC_HELP = f"""\
     [bold {WHITE}]local[/]        Downloaded SpectreBot — [dim]local_model_name: spectrenet-7b[/]
 
   SpectreBot variants (snet model download <name>):
-    [bold {WHITE}]spectrenet-mini[/]   3.8B Phi-3  — 4 GB+ VRAM or CPU
-    [bold {WHITE}]spectrenet-7b[/]     7B Mistral  — 8 GB+ VRAM   (recommended)
-    [bold {WHITE}]spectrenet-8b[/]     8B Llama 3.1 — 10 GB+ VRAM
+    [bold {WHITE}]spectrenet-mini[/]   3.8B Phi-3           — 4 GB+ VRAM or CPU
+    [bold {WHITE}]spectrenet-7b[/]     7B Mistral-7B        — 8 GB+ VRAM
+    [bold {WHITE}]spectrenet-8b[/]     8B Llama 3.1         — 10 GB+ VRAM
+    [bold {WHITE}]spectrenet-12b[/]    12B Mistral-Nemo     — 14 GB+ VRAM  [bold {CYAN}](recommended)[/]
 
   Training your own SpectreBot:
     1. [dim]snet train export --output training_data[/]
